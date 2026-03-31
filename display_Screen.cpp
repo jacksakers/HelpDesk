@@ -8,26 +8,18 @@
 #include "LovyanGFX_Driver.h"
 #include <Arduino.h>
 #include <Wire.h>
-#include <esp_timer.h>
 
 // ─── Hardware instance ──────────────────────────────────────────────────────
 static LGFX gfx;
 
 // ─── LVGL draw buffer (v8 uses lv_disp_draw_buf_t) ──────────────────────────
 #define DRAW_BUF_SIZE (320 * 240 / 10)
-static lv_color_t        draw_buf_arr[DRAW_BUF_SIZE];
+static lv_color_t         draw_buf_arr[DRAW_BUF_SIZE];
 static lv_disp_draw_buf_t draw_buf;
 
-// ─── Tick source: esp_timer fires every 2 ms ────────────────────────────────
-#define LV_TICK_PERIOD_MS 2
-
-static void lv_tick_cb(void * arg)
-{
-    (void)arg;
-    lv_tick_inc(LV_TICK_PERIOD_MS);
-}
-
 // ─── LVGL callbacks (v8 signatures) ─────────────────────────────────────────
+// No manual tick source needed: the Arduino LVGL 8.3 package enables
+// LV_TICK_CUSTOM in lv_conf.h so LVGL reads millis() automatically.
 
 static void my_disp_flush(lv_disp_drv_t * drv, const lv_area_t * area, lv_color_t * color_p)
 {
@@ -52,15 +44,6 @@ static void my_touchpad_read(lv_indev_drv_t * drv, lv_indev_data_t * data)
 static void initLVGL()
 {
     lv_init();
-
-    // Tick source via esp_timer (replaces lv_tick_set_cb which is v9-only)
-    const esp_timer_create_args_t timer_args = {
-        .callback = lv_tick_cb,
-        .name     = "lv_tick"
-    };
-    esp_timer_handle_t lv_tick_timer;
-    esp_timer_create(&timer_args, &lv_tick_timer);
-    esp_timer_start_periodic(lv_tick_timer, LV_TICK_PERIOD_MS * 1000UL);
 
     // Draw buffer
     lv_disp_draw_buf_init(&draw_buf, draw_buf_arr, NULL, DRAW_BUF_SIZE);
