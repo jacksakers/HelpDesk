@@ -1,0 +1,72 @@
+The HelpDesk - Environment & Hardware Setup Guide
+
+This guide covers getting your Arduino IDE ready to compile and flash code to your Elecrow 3.5" ESP32 HMI display, specifically focusing on the graphics, touch, and SD card functionality.
+
+Phase 1: Arduino IDE Board Manager Setup
+
+Open Arduino IDE, go to File > Preferences.
+
+In the "Additional Boards Manager URLs" field, add this URL:
+https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+(If you already have URLs there, separate them with a comma).
+
+Go to Tools > Board > Boards Manager.
+
+Search for esp32 by Espressif Systems and click Install.
+
+Once installed, go to Tools > Board > ESP32 Arduino and select ESP32 Dev Module (or the specific Elecrow WROOM/S3 board if listed in the manual).
+
+Phase 2: Crucial Library Installation
+
+To get the most out of this screen, you need a graphics library and a UI framework.
+Go to Sketch > Include Library > Manage Libraries. Install the following:
+
+TFT_eSPI by Bodmer: This is the fastest, most reliable driver for ESP32 TFT screens.
+
+lvgl (Light and Versatile Graphics Library): An incredible open-source graphics library that gives you buttons, sliders, animations, and a modern smartphone-like UI.
+
+ESP32-audioI2S (by schreibfaul1): Essential for playing MP3s from your SD card out of the speaker port.
+
+Phase 3: The "Gotcha" - Configuring TFT_eSPI
+
+Note: This is where 90% of people get stuck. TFT_eSPI needs to know the exact wiring of your specific Elecrow board.
+
+Navigate to your Arduino libraries folder (usually Documents/Arduino/libraries/TFT_eSPI).
+
+You need to edit the User_Setup.h file (or point it to a specific setup in User_Setup_Select.h).
+
+Look at the Elecrow GitHub repo you cloned. They will have a specific User_Setup.h file or a block of #define code for their 3.5" board.
+
+Copy the pin definitions (MOSI, MISO, SCK, CS, DC, RST) from the Elecrow repo and overwrite the ones in your TFT_eSPI/User_Setup.h file.
+
+Phase 4: SD Card Preparation
+
+Format your MicroSD card to FAT32 (ESP32 struggles with exFAT or NTFS).
+
+Create a few folders on the root of the SD card to keep things organized:
+
+/mp3 (for your music/sound effects)
+
+/images (for background wallpapers or photo frame pics - preferably formatted as .bmp or .rgb565 raw files for fast loading)
+
+/config (for future JSON files to save your to-do lists or settings)
+
+Insert the SD card into the Elecrow display.
+
+Phase 5: Your First Test Flash
+
+Plug your Elecrow board into your computer via USB.
+
+In Arduino IDE, select your COM Port under Tools > Port.
+
+Important ESP32 Settings (under Tools):
+
+Upload Speed: 921600
+
+Flash Frequency: 80MHz
+
+PSRAM: Enabled (If your specific Elecrow model has PSRAM, enable it. It's crucial for loading big images or running LVGL smoothly).
+
+Open the Arduino IDE, go to File > Examples > TFT_eSPI > 320 x 240 (or 480x320 depending on your screen) > TFT_Bouncing_Box.
+
+Click Upload. If the box bounces on your screen, your display driver is perfectly configured!

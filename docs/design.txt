@@ -1,0 +1,109 @@
+Product Design Document: The "HelpDesk"
+
+1. Product Vision
+
+The HelpDesk is a dedicated, multi-functional desktop companion. It is not meant to replace a smartphone, but rather to exist as a low-distraction, highly helpful peripheral that lives permanently on a desk, powered via USB from a PC. It leverages a modern touch interface to provide utility, ambient information, and light entertainment.
+
+2. Hardware Utilization Mapping
+
+ESP32 Microcontroller: The brain. Handles Wi-Fi for API fetching (weather, time), and Bluetooth (future phone notifications).
+
+3.5" Touchscreen: Primary input and output. Will run a custom UI built with LVGL.
+
+MicroSD Card: Asset storage. Holds UI icons, background wallpapers, MP3 tracks, and saves persistent data (like to-do lists).
+
+RTC (Real-Time Clock): Ensures the device knows the exact time immediately upon boot without waiting for a Wi-Fi NTP sync.
+
+Speaker Port & Buzzer: Used for alarms (Pomodoro), UI interaction clicks, and an MP3 player mode.
+
+Microphone: Future expansion (e.g., clap to wake screen, or simple voice-activated timers).
+
+UART / Serial: Used to communicate directly with the connected PC. A small background Python script on the PC can send CPU/RAM usage over USB serial to the HelpDesk.
+
+LoRa: Future expansion. Can be used to receive pings from DIY smart-home sensors (e.g., "Mail has arrived" or "Garage is open") without cluttering the local Wi-Fi network.
+
+3. Core Applications (The "App Drawer")
+
+A. DeskDash (Home Screen)
+
+The default ambient mode.
+
+Large, highly legible digital clock.
+
+Current weather and temperature (fetched via free OpenWeatherMap API).
+
+A fun, animated companion character (like a pixel-art pet) that idles on the screen.
+
+B. PomoFocus (Productivity Timer)
+
+A beautifully designed Pomodoro timer.
+
+25-minute work / 5-minute break toggle.
+
+Visual circular progress bar.
+
+Utilizes the Buzzer or Speaker for a pleasant chime when the phase changes.
+
+C. JukeDesk (Local MP3 Player)
+
+A distraction-free music player.
+
+Reads .mp3 files from the /mp3 directory on the SD card.
+
+Play/Pause/Skip touch controls.
+
+Shows basic ID3 tags or file names.
+
+D. TaskMaster (To-Do List)
+
+A simple, satisfying checklist.
+
+Saves the list to a .txt or .json file on the SD card so it persists after reboots.
+
+Touch to cross off items.
+
+Future idea: A web server runs on the ESP32 so you can type your tasks on your PC browser, and they instantly appear on the HelpDesk.
+
+E. Zen Frame (Digital Photo Frame)
+
+Cycles through images stored in the /images folder on the SD card.
+
+Changes image every X minutes.
+
+F. PC Monitor (via UART)
+
+Displays real-time PC metrics: CPU temp, GPU load, RAM usage.
+
+Requires a lightweight companion app running on the host PC that pushes data over the Serial COM port.
+
+G. GameBreak
+
+Simple touch-based games for when you need a 2-minute mental break.
+
+Tic-Tac-Toe against a simple AI.
+
+Slide Puzzle (15-puzzle).
+
+Simon Says (utilizing the screen for colors and the speaker for tones).
+
+4. Software Architecture
+
+Framework: Arduino Core for ESP32.
+
+UI Library: LVGL (Light and Versatile Graphics Library). It supports tabs, sliding windows, smooth animations, and button states.
+
+(Pro-Tip: Look into software called SquareLine Studio. It lets you drag and drop your UI on your computer and exports the code directly for your Arduino IDE!)
+
+State Machine: The code will use a switch(currentApp) state machine in the main loop() to ensure the ESP32 is only processing logic for the currently active app, saving memory and keeping the touch interface responsive.
+
+5. Development Roadmap
+
+Milestone 1: Get display and touch working (Bouncing box test, touch drawing test).
+
+Milestone 2: SD Card reading (Display an image from the SD card).
+
+Milestone 3: UI Framework (Get an LVGL button to render and respond to touch).
+
+Milestone 4: Build the "DeskDash" clock using Wi-Fi NTP and the RTC.
+
+Milestone 5: Build out the individual apps one by one.
