@@ -1,7 +1,7 @@
 // Project  : HelpDesk
 // File     : ui_Screen5.c
 // Purpose  : TaskMaster screen — to-do list placeholder layout
-// Depends  : ui.h (LVGL 8.3.11)
+// Depends  : ui.h (LVGL 9.x)
 
 #include "ui.h"
 
@@ -22,7 +22,7 @@ lv_obj_t * ui_Screen5 = NULL;
 /* ── Event callbacks ───────────────────────────────────────── */
 static void back_to_launcher_ev(lv_event_t * e)
 {
-    _ui_screen_change(&ui_Screen1, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0,
+    _ui_screen_change(&ui_Screen1, LV_SCREEN_LOAD_ANIM_MOVE_RIGHT, 300, 0,
                       ui_Screen1_screen_init);
 }
 
@@ -32,14 +32,14 @@ static void build_header(lv_obj_t * scr)
     lv_obj_t * hdr = lv_obj_create(scr);
     lv_obj_set_size(hdr, SCREEN_W, HDR_H);
     lv_obj_set_pos(hdr, 0, 0);
-    lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(hdr, lv_color_hex(CLR_HDR), 0);
     lv_obj_set_style_bg_opa(hdr, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(hdr, 0, 0);
     lv_obj_set_style_radius(hdr, 0, 0);
     lv_obj_set_style_pad_all(hdr, 0, 0);
 
-    lv_obj_t * back_btn = lv_btn_create(hdr);
+    lv_obj_t * back_btn = lv_button_create(hdr);
     lv_obj_set_size(back_btn, 40, HDR_H - 2);
     lv_obj_set_pos(back_btn, 2, 1);
     lv_obj_set_style_bg_color(back_btn, lv_color_hex(CLR_HDR), 0);
@@ -67,7 +67,7 @@ static void add_placeholder_task(lv_obj_t * scr, const char * text, int y)
     lv_obj_t * row = lv_obj_create(scr);
     lv_obj_set_size(row, 290, 30);
     lv_obj_set_pos(row, 15, y);
-    lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(row, lv_color_hex(CLR_ITEM), 0);
     lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(row, 0, 0);
@@ -102,7 +102,7 @@ static void build_body(lv_obj_t * scr)
     lv_obj_align(hint, LV_ALIGN_BOTTOM_MID, 0, -48);
 
     /* Add task button (placeholder — no action yet) */
-    lv_obj_t * add_btn = lv_btn_create(scr);
+    lv_obj_t * add_btn = lv_button_create(scr);
     lv_obj_set_size(add_btn, 160, 34);
     lv_obj_align(add_btn, LV_ALIGN_BOTTOM_MID, 0, -8);
     lv_obj_set_style_bg_color(add_btn, lv_color_hex(CLR_ACCENT), 0);
@@ -120,7 +120,7 @@ static void build_body(lv_obj_t * scr)
 void ui_Screen5_screen_init(void)
 {
     ui_Screen5 = lv_obj_create(NULL);
-    lv_obj_clear_flag(ui_Screen5, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(ui_Screen5, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(ui_Screen5, lv_color_hex(CLR_BG), 0);
     lv_obj_set_style_bg_opa(ui_Screen5, LV_OPA_COVER, 0);
 
@@ -133,6 +133,6 @@ void ui_Screen5_screen_init(void)
 
 void ui_Screen5_screen_destroy(void)
 {
-    if(ui_Screen5) lv_obj_del(ui_Screen5);
+    if(ui_Screen5) lv_obj_delete(ui_Screen5);
     ui_Screen5 = NULL;
 }

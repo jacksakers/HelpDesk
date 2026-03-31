@@ -1,7 +1,7 @@
 // Project  : HelpDesk
 // File     : ui_Screen1.c
 // Purpose  : Launcher screen — app-tile grid and navigation
-// Depends  : ui.h (LVGL 8.3.11)
+// Depends  : ui.h (LVGL 9.x)
 
 #include "ui.h"
 
@@ -48,7 +48,7 @@ static void tile_clicked_ev(lv_event_t * e)
 {
     uint8_t idx = (uint8_t)(uintptr_t)lv_event_get_user_data(e);
     const app_tile_t * app = &k_apps[idx];
-    _ui_screen_change(app->screen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, app->init);
+    _ui_screen_change(app->screen, LV_SCREEN_LOAD_ANIM_MOVE_LEFT, 300, 0, app->init);
 }
 
 /* ── Private helpers ───────────────────────────────────────── */
@@ -57,7 +57,7 @@ static void build_header(lv_obj_t * scr)
     lv_obj_t * hdr = lv_obj_create(scr);
     lv_obj_set_size(hdr, SCREEN_W, HDR_H);
     lv_obj_set_pos(hdr, 0, 0);
-    lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(hdr, lv_color_hex(CLR_HDR), 0);
     lv_obj_set_style_bg_opa(hdr, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(hdr, 0, 0);
@@ -83,7 +83,7 @@ static void build_one_tile(lv_obj_t * scr, uint8_t idx)
     lv_obj_t * tile = lv_obj_create(scr);
     lv_obj_set_size(tile, TILE_W, TILE_H);
     lv_obj_set_pos(tile, x, y);
-    lv_obj_clear_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(tile, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_style_bg_color(tile, color, 0);
     lv_obj_set_style_bg_opa(tile, LV_OPA_COVER, 0);
@@ -92,7 +92,7 @@ static void build_one_tile(lv_obj_t * scr, uint8_t idx)
     lv_obj_set_style_shadow_width(tile, 0, 0);
     lv_obj_set_style_pad_all(tile, 4, 0);
     /* Darker shade when pressed for tactile feedback */
-    lv_obj_set_style_bg_color(tile, lv_color_darken(color, LV_OPA_20),
+    lv_obj_set_style_bg_color(tile, lv_color_mix(lv_color_black(), color, LV_OPA_20),
                               LV_PART_MAIN | LV_STATE_PRESSED);
 
     lv_obj_t * lbl = lv_label_create(tile);
@@ -116,7 +116,7 @@ static void build_tile_grid(lv_obj_t * scr)
 void ui_Screen1_screen_init(void)
 {
     ui_Screen1 = lv_obj_create(NULL);
-    lv_obj_clear_flag(ui_Screen1, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(ui_Screen1, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(ui_Screen1, lv_color_hex(CLR_BG), 0);
     lv_obj_set_style_bg_opa(ui_Screen1, LV_OPA_COVER, 0);
 
@@ -130,6 +130,6 @@ void ui_Screen1_screen_init(void)
 
 void ui_Screen1_screen_destroy(void)
 {
-    if(ui_Screen1) lv_obj_del(ui_Screen1);
+    if(ui_Screen1) lv_obj_delete(ui_Screen1);
     ui_Screen1 = NULL;
 }

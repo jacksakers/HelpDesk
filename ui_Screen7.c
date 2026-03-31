@@ -1,7 +1,7 @@
 // Project  : HelpDesk
 // File     : ui_Screen7.c
 // Purpose  : PCMonitor screen — UART-driven PC metrics placeholder layout
-// Depends  : ui.h (LVGL 8.3.11)
+// Depends  : ui.h (LVGL 9.x)
 
 #include "ui.h"
 
@@ -39,7 +39,7 @@ lv_obj_t * ui_PcStatusLabel = NULL;
 /* ── Event callbacks ───────────────────────────────────────── */
 static void back_to_launcher_ev(lv_event_t * e)
 {
-    _ui_screen_change(&ui_Screen1, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0,
+    _ui_screen_change(&ui_Screen1, LV_SCREEN_LOAD_ANIM_MOVE_RIGHT, 300, 0,
                       ui_Screen1_screen_init);
 }
 
@@ -49,14 +49,14 @@ static void build_header(lv_obj_t * scr)
     lv_obj_t * hdr = lv_obj_create(scr);
     lv_obj_set_size(hdr, SCREEN_W, HDR_H);
     lv_obj_set_pos(hdr, 0, 0);
-    lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(hdr, lv_color_hex(CLR_HDR), 0);
     lv_obj_set_style_bg_opa(hdr, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(hdr, 0, 0);
     lv_obj_set_style_radius(hdr, 0, 0);
     lv_obj_set_style_pad_all(hdr, 0, 0);
 
-    lv_obj_t * back_btn = lv_btn_create(hdr);
+    lv_obj_t * back_btn = lv_button_create(hdr);
     lv_obj_set_size(back_btn, 40, HDR_H - 2);
     lv_obj_set_pos(back_btn, 2, 1);
     lv_obj_set_style_bg_color(back_btn, lv_color_hex(CLR_HDR), 0);
@@ -145,7 +145,7 @@ static void build_body(lv_obj_t * scr)
 void ui_Screen7_screen_init(void)
 {
     ui_Screen7 = lv_obj_create(NULL);
-    lv_obj_clear_flag(ui_Screen7, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(ui_Screen7, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(ui_Screen7, lv_color_hex(CLR_BG), 0);
     lv_obj_set_style_bg_opa(ui_Screen7, LV_OPA_COVER, 0);
 
@@ -166,6 +166,6 @@ void ui_Screen7_screen_destroy(void)
     ui_GpuLabel    = NULL;
     ui_PcStatusLabel = NULL;
 
-    if(ui_Screen7) lv_obj_del(ui_Screen7);
+    if(ui_Screen7) lv_obj_delete(ui_Screen7);
     ui_Screen7 = NULL;
 }

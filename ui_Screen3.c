@@ -1,7 +1,7 @@
 // Project  : HelpDesk
 // File     : ui_Screen3.c
 // Purpose  : PomoFocus screen — Pomodoro timer placeholder layout
-// Depends  : ui.h (LVGL 8.3.11)
+// Depends  : ui.h (LVGL 9.x)
 
 #include "ui.h"
 
@@ -42,7 +42,7 @@ lv_obj_t * ui_PomoPhaseLabel = NULL;
 /* ── Event callbacks ───────────────────────────────────────── */
 static void back_to_launcher_ev(lv_event_t * e)
 {
-    _ui_screen_change(&ui_Screen1, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0,
+    _ui_screen_change(&ui_Screen1, LV_SCREEN_LOAD_ANIM_MOVE_RIGHT, 300, 0,
                       ui_Screen1_screen_init);
 }
 
@@ -52,14 +52,14 @@ static void build_header(lv_obj_t * scr)
     lv_obj_t * hdr = lv_obj_create(scr);
     lv_obj_set_size(hdr, SCREEN_W, HDR_H);
     lv_obj_set_pos(hdr, 0, 0);
-    lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(hdr, lv_color_hex(CLR_HDR), 0);
     lv_obj_set_style_bg_opa(hdr, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(hdr, 0, 0);
     lv_obj_set_style_radius(hdr, 0, 0);
     lv_obj_set_style_pad_all(hdr, 0, 0);
 
-    lv_obj_t * back_btn = lv_btn_create(hdr);
+    lv_obj_t * back_btn = lv_button_create(hdr);
     lv_obj_set_size(back_btn, 40, HDR_H - 2);
     lv_obj_set_pos(back_btn, 2, 1);
     lv_obj_set_style_bg_color(back_btn, lv_color_hex(CLR_HDR), 0);
@@ -88,7 +88,7 @@ static lv_obj_t * make_btn(lv_obj_t * scr, const char * label,
     lv_obj_set_size(btn, w, h);
     lv_obj_set_pos(btn, x, y);
     lv_obj_set_style_bg_color(btn, lv_color_hex(color), 0);
-    lv_obj_set_style_bg_color(btn, lv_color_darken(lv_color_hex(color), LV_OPA_30),
+    lv_obj_set_style_bg_color(btn, lv_color_mix(lv_color_black(), lv_color_hex(color), LV_OPA_30),
                               LV_PART_MAIN | LV_STATE_PRESSED);
     lv_obj_set_style_border_width(btn, 0, 0);
     lv_obj_set_style_radius(btn, 8, 0);
@@ -119,7 +119,7 @@ static void build_arc(lv_obj_t * scr)
     lv_obj_set_style_arc_width(arc, ARC_THICK, LV_PART_INDICATOR | LV_STATE_DEFAULT);
     /* Hide knob so it acts as a display-only indicator */
     lv_obj_set_style_bg_opa(arc, LV_OPA_TRANSP, LV_PART_KNOB);
-    lv_obj_clear_flag(arc, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(arc, LV_OBJ_FLAG_CLICKABLE);
     ui_PomoArc = arc;
 
     /* Time remaining — centred inside the arc */
@@ -155,7 +155,7 @@ static void build_controls(lv_obj_t * scr)
 void ui_Screen3_screen_init(void)
 {
     ui_Screen3 = lv_obj_create(NULL);
-    lv_obj_clear_flag(ui_Screen3, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_remove_flag(ui_Screen3, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(ui_Screen3, lv_color_hex(CLR_BG), 0);
     lv_obj_set_style_bg_opa(ui_Screen3, LV_OPA_COVER, 0);
 
@@ -173,6 +173,6 @@ void ui_Screen3_screen_destroy(void)
     ui_PomoTimeLabel = NULL;
     ui_PomoPhaseLabel = NULL;
 
-    if(ui_Screen3) lv_obj_del(ui_Screen3);
+    if(ui_Screen3) lv_obj_delete(ui_Screen3);
     ui_Screen3 = NULL;
 }

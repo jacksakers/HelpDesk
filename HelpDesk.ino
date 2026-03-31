@@ -52,7 +52,16 @@ void loop()
     // Let LVGL process animations, touch events, and redraws
     lv_timer_handler();
 
+    // ── Tick watchdog: print every 5 s so we know lv_timer_handler is running
+    static unsigned long last_tick_log = 0;
+    static uint32_t handler_calls = 0;
+    handler_calls++;
     unsigned long now = millis();
+    if(now - last_tick_log >= 5000UL) {
+        Serial.printf("[loop] lv_timer_handler calls: %lu, lv_tick_get: %lu ms\n",
+                      handler_calls, lv_tick_get());
+        last_tick_log = now;
+    }
 
     // Periodic feature updates — uncomment each as the module is implemented
     // handleTimeUpdate(now);
