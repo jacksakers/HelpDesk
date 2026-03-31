@@ -1,0 +1,20 @@
+Steps:
+
+Arduino IDE → Library Manager → search lvgl → install/update to 9.2.x
+
+Replace lv_conf.h — the v8 and v9 conf files are incompatible:
+
+Navigate to your Arduino libraries folder: Documents\Arduino\libraries\lvgl\
+
+Copy lv_conf_template.h to the parent folder (Documents\Arduino\libraries\) and 
+rename it to lv_conf.h
+
+Open it and change the first #if 0 to #if 1 to activate it
+
+Find LV_COLOR_DEPTH and set it to 16
+
+Remove the old lv_conf.h if you had one sitting next to your sketch — it will conflict.
+
+The lv_conf.h step is what usually causes a wall of compile errors even after a 
+clean version upgrade. 
+Everything else in the HelpDesk project has been migrated to the v9 API.
