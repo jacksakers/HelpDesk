@@ -73,7 +73,7 @@ public:
             cfg.y_max          = 319;
             cfg.pin_int        = 47;
             cfg.bus_shared     = false;
-            cfg.offset_rotation = 0;
+            cfg.offset_rotation = 6;  // corrects touch↔display axis mismatch at rotation=3
             cfg.i2c_port       = 0;
             cfg.i2c_addr       = 0x38;
             cfg.pin_sda        = 15;

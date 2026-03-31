@@ -13,8 +13,10 @@
 static LGFX gfx;
 
 // ─── LVGL draw buffer (v8 uses lv_disp_draw_buf_t) ──────────────────────────
+// Allocated in PSRAM via ps_malloc. A static SRAM array fails with DMA on
+// the ESP32-S3 because the DMA engine requires PSRAM-accessible memory.
 #define DRAW_BUF_SIZE (320 * 240 / 10)
-static lv_color_t         draw_buf_arr[DRAW_BUF_SIZE];
+static lv_color_t *       draw_buf_arr = nullptr;
 static lv_disp_draw_buf_t draw_buf;
 
 // ─── LVGL callbacks (v8 signatures) ─────────────────────────────────────────
@@ -23,17 +25,13 @@ static lv_disp_draw_buf_t draw_buf;
 
 static void my_disp_flush(lv_disp_drv_t * drv, const lv_area_t * area, lv_color_t * color_p)
 {
-    /* Debug: print the first 3 flush calls so we can confirm LVGL is rendering */
-    static uint8_t flush_count = 0;
-    if(flush_count < 3) {
-        Serial.printf("[LVGL] flush #%d area=(%d,%d)->(%d,%d)\n",
-                      flush_count, area->x1, area->y1, area->x2, area->y2);
-        flush_count++;
-    }
-
     uint32_t w = lv_area_get_width(area);
     uint32_t h = lv_area_get_height(area);
     gfx.pushImageDMA(area->x1, area->y1, w, h, (lgfx::rgb565_t *)color_p);
+    /* Wait for DMA to finish before releasing the buffer back to LVGL.
+       Without this, LVGL overwrites the single draw buffer while DMA is
+       still reading it, producing a corrupted (black) screen. */
+    gfx.waitDMA();
     lv_disp_flush_ready(drv);
 }
 
@@ -52,6 +50,13 @@ static void my_touchpad_read(lv_indev_drv_t * drv, lv_indev_data_t * data)
 static void initLVGL()
 {
     lv_init();
+
+    // Allocate draw buffer in PSRAM
+    draw_buf_arr = (lv_color_t *)ps_malloc(DRAW_BUF_SIZE * sizeof(lv_color_t));
+    if(!draw_buf_arr) {
+        Serial.println("[LVGL] ERROR: ps_malloc failed — check PSRAM is enabled in Tools menu");
+        return;
+    }
 
     // Draw buffer
     lv_disp_draw_buf_init(&draw_buf, draw_buf_arr, NULL, DRAW_BUF_SIZE);
