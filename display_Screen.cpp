@@ -23,6 +23,14 @@ static lv_disp_draw_buf_t draw_buf;
 
 static void my_disp_flush(lv_disp_drv_t * drv, const lv_area_t * area, lv_color_t * color_p)
 {
+    /* Debug: print the first 3 flush calls so we can confirm LVGL is rendering */
+    static uint8_t flush_count = 0;
+    if(flush_count < 3) {
+        Serial.printf("[LVGL] flush #%d area=(%d,%d)->(%d,%d)\n",
+                      flush_count, area->x1, area->y1, area->x2, area->y2);
+        flush_count++;
+    }
+
     uint32_t w = lv_area_get_width(area);
     uint32_t h = lv_area_get_height(area);
     gfx.pushImageDMA(area->x1, area->y1, w, h, (lgfx::rgb565_t *)color_p);

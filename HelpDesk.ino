@@ -44,6 +44,9 @@ void setup()
     // initPomoTimer();
     // pcMonitorInit();
 
+    // Force the first frame to render immediately rather than waiting for loop()
+    lv_refr_now(NULL);
+
     Serial.println("[HelpDesk] Init complete. Entering loop.");
 }
 
