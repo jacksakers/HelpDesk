@@ -1,0 +1,171 @@
+// Project  : HelpDesk
+// File     : ui_Screen7.c
+// Purpose  : PCMonitor screen — UART-driven PC metrics placeholder layout
+// Depends  : ui.h (LVGL 8.3.11)
+
+#include "ui.h"
+
+/* ── Colours ───────────────────────────────────────────────── */
+#define CLR_BG       0x1A1A2E
+#define CLR_HDR      0x16213E
+#define CLR_ACCENT   0xFF9800   /* Orange — matches launcher tile */
+#define CLR_BAR_BG   0x2A2A3E
+#define CLR_CPU      0xFF9800   /* Orange bars for CPU            */
+#define CLR_RAM      0x42A5F5   /* Blue bars for RAM              */
+#define CLR_GPU      0x66BB6A   /* Green bars for GPU             */
+#define CLR_SUBTLE   0xAAAAAA
+
+/* ── Dimensions ────────────────────────────────────────────── */
+#define SCREEN_W     320
+#define HDR_H         30
+#define ROW_H         26   /* Height of each metric row      */
+#define ROW_GAP        8
+#define BAR_W        160
+#define LABEL_W       48   /* Left-side metric name width    */
+#define VAL_W         48   /* Right-side value width         */
+#define FIRST_ROW_Y   42
+#define LEFT_PAD       8
+
+/* ── Public objects ────────────────────────────────────────── */
+lv_obj_t * ui_Screen7     = NULL;
+lv_obj_t * ui_CpuBar      = NULL;
+lv_obj_t * ui_CpuLabel    = NULL;
+lv_obj_t * ui_RamBar      = NULL;
+lv_obj_t * ui_RamLabel    = NULL;
+lv_obj_t * ui_GpuBar      = NULL;
+lv_obj_t * ui_GpuLabel    = NULL;
+lv_obj_t * ui_PcStatusLabel = NULL;
+
+/* ── Event callbacks ───────────────────────────────────────── */
+static void back_to_launcher_ev(lv_event_t * e)
+{
+    _ui_screen_change(&ui_Screen1, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0,
+                      ui_Screen1_screen_init);
+}
+
+/* ── Private helpers ───────────────────────────────────────── */
+static void build_header(lv_obj_t * scr)
+{
+    lv_obj_t * hdr = lv_obj_create(scr);
+    lv_obj_set_size(hdr, SCREEN_W, HDR_H);
+    lv_obj_set_pos(hdr, 0, 0);
+    lv_obj_clear_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(hdr, lv_color_hex(CLR_HDR), 0);
+    lv_obj_set_style_bg_opa(hdr, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(hdr, 0, 0);
+    lv_obj_set_style_radius(hdr, 0, 0);
+    lv_obj_set_style_pad_all(hdr, 0, 0);
+
+    lv_obj_t * back_btn = lv_btn_create(hdr);
+    lv_obj_set_size(back_btn, 40, HDR_H - 2);
+    lv_obj_set_pos(back_btn, 2, 1);
+    lv_obj_set_style_bg_color(back_btn, lv_color_hex(CLR_HDR), 0);
+    lv_obj_set_style_bg_color(back_btn, lv_color_hex(0x0D1321),
+                              LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(back_btn, 0, 0);
+    lv_obj_set_style_shadow_width(back_btn, 0, 0);
+    lv_obj_set_style_pad_all(back_btn, 0, 0);
+    lv_obj_add_event_cb(back_btn, back_to_launcher_ev, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t * ico = lv_label_create(back_btn);
+    lv_label_set_text(ico, LV_SYMBOL_LEFT);
+    lv_obj_set_style_text_color(ico, lv_color_white(), 0);
+    lv_obj_center(ico);
+
+    lv_obj_t * title = lv_label_create(hdr);
+    lv_label_set_text(title, "PCMonitor");
+    lv_obj_set_style_text_color(title, lv_color_white(), 0);
+    lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
+}
+
+/* Builds one metric row: [name]  [bar]  [value %] */
+static void build_metric_row(lv_obj_t * scr,
+                              const char * name,
+                              uint32_t bar_color,
+                              int y,
+                              lv_obj_t ** out_bar,
+                              lv_obj_t ** out_val_lbl)
+{
+    /* Name label */
+    lv_obj_t * name_lbl = lv_label_create(scr);
+    lv_label_set_text(name_lbl, name);
+    lv_obj_set_style_text_color(name_lbl, lv_color_hex(CLR_SUBTLE), 0);
+    lv_obj_set_pos(name_lbl, LEFT_PAD, y + (ROW_H - 14) / 2);
+
+    /* Progress bar */
+    lv_obj_t * bar = lv_bar_create(scr);
+    lv_obj_set_size(bar, BAR_W, ROW_H - 8);
+    lv_obj_set_pos(bar, LEFT_PAD + LABEL_W + 4, y + 4);
+    lv_bar_set_range(bar, 0, 100);
+    lv_bar_set_value(bar, 0, LV_ANIM_OFF);
+    lv_obj_set_style_bg_color(bar, lv_color_hex(CLR_BAR_BG),
+                              LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(bar, lv_color_hex(bar_color),
+                              LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(bar, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(bar, 4, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    *out_bar = bar;
+
+    /* Value label */
+    lv_obj_t * val_lbl = lv_label_create(scr);
+    lv_label_set_text(val_lbl, "--%");
+    lv_obj_set_style_text_color(val_lbl, lv_color_hex(bar_color), 0);
+    lv_obj_set_pos(val_lbl, LEFT_PAD + LABEL_W + 4 + BAR_W + 6, y + (ROW_H - 14) / 2);
+    *out_val_lbl = val_lbl;
+}
+
+static void build_body(lv_obj_t * scr)
+{
+    build_metric_row(scr, "CPU", CLR_CPU,
+                     FIRST_ROW_Y + 0 * (ROW_H + ROW_GAP),
+                     &ui_CpuBar, &ui_CpuLabel);
+
+    build_metric_row(scr, "RAM", CLR_RAM,
+                     FIRST_ROW_Y + 1 * (ROW_H + ROW_GAP),
+                     &ui_RamBar, &ui_RamLabel);
+
+    build_metric_row(scr, "GPU", CLR_GPU,
+                     FIRST_ROW_Y + 2 * (ROW_H + ROW_GAP),
+                     &ui_GpuBar, &ui_GpuLabel);
+
+    /* Connection status */
+    lv_obj_t * status = lv_label_create(scr);
+    lv_label_set_text(status,
+                      LV_SYMBOL_USB "  Waiting for serial data...\n"
+                      "Run the companion script on your PC.");
+    lv_obj_set_style_text_color(status, lv_color_hex(CLR_SUBTLE), 0);
+    lv_obj_set_style_text_align(status, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(status, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(status, 280);
+    lv_obj_align(status, LV_ALIGN_BOTTOM_MID, 0, -12);
+    ui_PcStatusLabel = status;
+}
+
+/* ── Public lifecycle ──────────────────────────────────────── */
+void ui_Screen7_screen_init(void)
+{
+    ui_Screen7 = lv_obj_create(NULL);
+    lv_obj_clear_flag(ui_Screen7, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(ui_Screen7, lv_color_hex(CLR_BG), 0);
+    lv_obj_set_style_bg_opa(ui_Screen7, LV_OPA_COVER, 0);
+
+    lv_obj_add_event_cb(ui_Screen7, scr_unloaded_delete_cb,
+                        LV_EVENT_SCREEN_UNLOADED, ui_Screen7_screen_destroy);
+
+    build_header(ui_Screen7);
+    build_body(ui_Screen7);
+}
+
+void ui_Screen7_screen_destroy(void)
+{
+    ui_CpuBar      = NULL;
+    ui_CpuLabel    = NULL;
+    ui_RamBar      = NULL;
+    ui_RamLabel    = NULL;
+    ui_GpuBar      = NULL;
+    ui_GpuLabel    = NULL;
+    ui_PcStatusLabel = NULL;
+
+    if(ui_Screen7) lv_obj_del(ui_Screen7);
+    ui_Screen7 = NULL;
+}
