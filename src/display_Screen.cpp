@@ -94,6 +94,11 @@ void initDisplay()
     gfx.init();
     Serial.println("[Display] gfx.init() done");
 
+    // ILI9488 defaults to 18-bit (3 bytes/px) SPI color.
+    // Force 16-bit so the panel matches LVGL's RGB565 output.
+    gfx.setColorDepth(16);
+    Serial.println("[Display] setColorDepth(16) — forced RGB565 on SPI bus");
+
     gfx.startWrite();
     gfx.fillScreen(TFT_BLACK);
 
