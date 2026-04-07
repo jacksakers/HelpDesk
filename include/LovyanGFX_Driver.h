@@ -3,12 +3,16 @@
 // Purpose  : LovyanGFX hardware configuration for the Elecrow 3.5" ESP32-S3 HMI display
 // Depends  : LovyanGFX library
 
-// ─── Pin map (Elecrow 3.5" ESP32-S3 HMI, ILI9488 480x320 + GT911 touch) ────
+// ─── Pin map (Elecrow CrowPanel Advance 3.5" ESP32-S3 HMI, 480x320) ────────
 //   SPI SCLK  : 42      Backlight : 38
 //   SPI MOSI  : 39      I2C SDA   : 15  (touch)
 //   SPI CS    : 40      I2C SCL   : 16  (touch)
 //   SPI D/C   : 41      Touch INT : 47
 //   Touch I2C address : 0x5D (GT911)
+//
+//   NOTE: The ILI9488 chip on this board accepts ST7789-compatible 16-bit SPI.
+//   Using Panel_ILI9488 sends 18-bit (3 bytes/pixel) which garbles the output.
+//   Elecrow's official factory code uses Panel_ST7789 for this reason.
 
 #define LGFX_USE_V1
 #include <LovyanGFX.hpp>
@@ -16,7 +20,7 @@
 
 class LGFX : public lgfx::LGFX_Device
 {
-    lgfx::Panel_ILI9488 _panel_instance;
+    lgfx::Panel_ST7789  _panel_instance;   // 16-bit SPI (matches what the ILI9488 expects on this board)
     lgfx::Bus_SPI       _bus_instance;
     lgfx::Touch_GT911   _touch_instance;
 
@@ -41,7 +45,7 @@ public:
             _panel_instance.setBus(&_bus_instance);
         }
 
-        // ── Display panel (ILI9488, 480x320) ─────────────────────────────
+        // ── Display panel (480x320, landscape) ──────────────────────────
         {
             auto cfg = _panel_instance.config();
             cfg.pin_cs           = 40;
@@ -57,8 +61,8 @@ public:
             cfg.dummy_read_pixel = 8;
             cfg.dummy_read_bits  = 1;
             cfg.readable         = false;
-            cfg.invert           = false;
-            cfg.rgb_order        = true;
+            cfg.invert           = true;    // required per Elecrow factory code
+            cfg.rgb_order        = false;   // no R/B swap needed
             cfg.dlen_16bit       = false;
             cfg.bus_shared       = true;
             _panel_instance.config(cfg);
