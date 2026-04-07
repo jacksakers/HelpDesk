@@ -13,7 +13,7 @@
 #define CLR_PANEL    0x16213E
 
 /* ── Screen dimensions ─────────────────────────────────────── */
-#define SCREEN_W     320
+#define SCREEN_W     480
 #define HDR_H         30
 
 /* ── Public objects ────────────────────────────────────────── */

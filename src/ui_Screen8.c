@@ -14,7 +14,7 @@
 #define CLR_SIMON       0x1565C0   /* Simon Says button colour      */
 
 /* ── Dimensions ────────────────────────────────────────────── */
-#define SCREEN_W        320
+#define SCREEN_W        480
 #define HDR_H            30
 #define GAME_BTN_W      280
 #define GAME_BTN_H       46

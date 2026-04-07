@@ -6,12 +6,13 @@
 #include "ui.h"
 
 /* ── Layout constants ──────────────────────────────────────── */
-#define SCREEN_W       320
-#define HDR_H           30
-#define TILE_W          71
-#define TILE_H          94
-#define TILE_GAP         6
-#define TILE_MARGIN      8
+#define SCREEN_W       480
+#define SCREEN_H       320
+#define HDR_H           36
+#define TILE_W         100
+#define TILE_H         120
+#define TILE_GAP         8
+#define TILE_MARGIN     12
 #define TILES_PER_ROW    4
 #define COL_STRIDE      (TILE_W + TILE_GAP)
 #define ROW_STRIDE      (TILE_H + TILE_GAP)

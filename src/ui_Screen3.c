@@ -17,13 +17,13 @@
 #define CLR_BREAK_MODE  0x1565C0   /* Break mode indicator        */
 
 /* ── Dimensions ────────────────────────────────────────────── */
-#define SCREEN_W        320
+#define SCREEN_W        480
 #define HDR_H            30
 #define ARC_SIZE        120
 #define ARC_THICK        12
 /* Arc positioned so controls fit below it within 240px height */
 #define ARC_Y            42   /* top of arc from screen top    */
-#define ARC_CX          160   /* horizontal centre             */
+#define ARC_CX          240   /* horizontal centre             */
 #define ARC_CY          (ARC_Y + ARC_SIZE / 2)
 
 #define MODE_BTN_Y      (ARC_Y + ARC_SIZE + 8)

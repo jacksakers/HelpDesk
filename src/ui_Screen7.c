@@ -16,7 +16,7 @@
 #define CLR_SUBTLE   0xAAAAAA
 
 /* ── Dimensions ────────────────────────────────────────────── */
-#define SCREEN_W     320
+#define SCREEN_W     480
 #define HDR_H         30
 #define ROW_H         26   /* Height of each metric row      */
 #define ROW_GAP        8

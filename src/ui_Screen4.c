@@ -14,7 +14,7 @@
 #define CLR_SUBTLE      0xAAAAAA
 
 /* ── Dimensions ────────────────────────────────────────────── */
-#define SCREEN_W        320
+#define SCREEN_W        480
 #define HDR_H            30
 #define ART_SIZE         90   /* Album art placeholder square  */
 #define ART_X           ((SCREEN_W - ART_SIZE) / 2)

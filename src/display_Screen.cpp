@@ -15,7 +15,7 @@ static LGFX gfx;
 // Use a static SRAM buffer — same approach as the working Desktop_Assistant
 // example.  ps_malloc fails silently when PSRAM is not enabled in the IDE,
 // which was causing a completely black screen.
-#define DRAW_BUF_SIZE (320 * 240 / 10)
+#define DRAW_BUF_SIZE (480 * 320 / 10)
 static lv_color_t    draw_buf_arr[DRAW_BUF_SIZE];
 static lv_display_t * disp = nullptr;
 
@@ -65,12 +65,12 @@ static void initLVGL()
     Serial.println("[LVGL] lv_init() done");
 
     // Create and configure the display
-    disp = lv_display_create(320, 240);
+    disp = lv_display_create(480, 320);
     lv_display_set_flush_cb(disp, my_disp_flush);
     lv_display_set_buffers(disp, draw_buf_arr, NULL,
                            sizeof(draw_buf_arr),
                            LV_DISPLAY_RENDER_MODE_PARTIAL);
-    Serial.println("[LVGL] display driver registered (320x240)");
+    Serial.println("[LVGL] display driver registered (480x320)");
 
     // Create and configure the input device
     lv_indev_t * indev = lv_indev_create();
@@ -96,9 +96,9 @@ void initDisplay()
 
     // ── Visual hardware test: red/green/blue bars ──────────────
     // If you see these, the SPI + display panel work correctly.
-    gfx.fillRect(0,   0, 320, 80, TFT_RED);
-    gfx.fillRect(0,  80, 320, 80, TFT_GREEN);
-    gfx.fillRect(0, 160, 320, 80, TFT_BLUE);
+    gfx.fillRect(0,   0, 480, 107, TFT_RED);
+    gfx.fillRect(0, 107, 480, 107, TFT_GREEN);
+    gfx.fillRect(0, 214, 480, 106, TFT_BLUE);
     Serial.println("[Display] RGB test bars drawn — you should see red/green/blue");
     delay(1500);  // pause so you can see the test pattern
 

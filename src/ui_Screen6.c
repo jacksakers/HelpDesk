@@ -13,8 +13,8 @@
 #define CLR_SUBTLE  0xAAAAAA
 
 /* ── Dimensions ────────────────────────────────────────────── */
-#define SCREEN_W    320
-#define SCREEN_H    240
+#define SCREEN_W    480
+#define SCREEN_H    320
 #define HDR_H        30
 /* Frame area fills most of the screen */
 #define FRAME_X      10
