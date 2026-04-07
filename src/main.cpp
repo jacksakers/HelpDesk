@@ -33,10 +33,7 @@ void setup()
     digitalWrite(38, HIGH);               // leave backlight ON
 
     Serial.begin(115200);
-
-    // USB-CDC on ESP32-S3 needs time to enumerate. Wait up to 3 s.
-    unsigned long t0 = millis();
-    while(!Serial && (millis() - t0 < 3000)) { delay(10); }
+    delay(500);   // brief settle time for UART
 
     Serial.println();
     Serial.println("===================================");

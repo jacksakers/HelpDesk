@@ -7,7 +7,6 @@
 #include "display_Screen.h"
 #include "LovyanGFX_Driver.h"
 #include <Arduino.h>
-#include <Wire.h>
 
 // ─── Hardware instance ──────────────────────────────────────────────────────
 static LGFX gfx;
@@ -75,10 +74,8 @@ void initDisplay()
 {
     Serial.println("[Display] Starting initDisplay...");
 
-    // I2C for touch controller (FT5x06 on pins 15/16)
-    Wire.begin(15, 16);
-    delay(50);
-    Serial.println("[Display] I2C started (SDA=15, SCL=16)");
+    // LovyanGFX handles I2C for the touch controller internally
+    // (pins configured in LovyanGFX_Driver.h). No Wire.begin() needed.
 
     gfx.init();
     Serial.println("[Display] gfx.init() done");
