@@ -27,12 +27,23 @@ static uint32_t my_tick(void)
 
 // ─── LVGL callbacks (v9 signatures) ──────────────────────────────────────────
 
+static uint32_t flush_count = 0;
+
 static void my_disp_flush(lv_display_t * d, const lv_area_t * area, uint8_t * px_map)
 {
     uint32_t w = lv_area_get_width(area);
     uint32_t h = lv_area_get_height(area);
-    gfx.pushImageDMA(area->x1, area->y1, w, h, (lgfx::rgb565_t *)px_map);
+
+    // Use synchronous pushImage — not DMA.
+    // With a single draw buffer, pushImageDMA returns before the transfer
+    // completes, and LVGL immediately overwrites the buffer → black screen.
+    gfx.pushImage(area->x1, area->y1, w, h, (lgfx::rgb565_t *)px_map);
     lv_display_flush_ready(d);
+
+    if(++flush_count <= 5) {
+        Serial.printf("[flush #%lu] x=%d y=%d %lux%lu\n",
+                      flush_count, area->x1, area->y1, w, h);
+    }
 }
 
 static void my_touchpad_read(lv_indev_t * indev, lv_indev_data_t * data)
@@ -80,10 +91,19 @@ void initDisplay()
     gfx.init();
     Serial.println("[Display] gfx.init() done");
 
-    gfx.initDMA();
     gfx.startWrite();
     gfx.fillScreen(TFT_BLACK);
-    Serial.println("[Display] DMA + fillScreen done");
+
+    // ── Visual hardware test: red/green/blue bars ──────────────
+    // If you see these, the SPI + display panel work correctly.
+    gfx.fillRect(0,   0, 320, 80, TFT_RED);
+    gfx.fillRect(0,  80, 320, 80, TFT_GREEN);
+    gfx.fillRect(0, 160, 320, 80, TFT_BLUE);
+    Serial.println("[Display] RGB test bars drawn — you should see red/green/blue");
+    delay(1500);  // pause so you can see the test pattern
+
+    gfx.fillScreen(TFT_BLACK);
+    Serial.println("[Display] fillScreen done");
 
     initLVGL();
 
