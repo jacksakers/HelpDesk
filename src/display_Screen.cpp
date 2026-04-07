@@ -12,11 +12,11 @@
 static LGFX gfx;
 
 // ─── LVGL draw buffer ────────────────────────────────────────────────────────
-// Use a static SRAM buffer — same approach as the working Desktop_Assistant
-// example.  ps_malloc fails silently when PSRAM is not enabled in the IDE,
-// which was causing a completely black screen.
-#define DRAW_BUF_SIZE (480 * 320 / 10)
-static lv_color_t    draw_buf_arr[DRAW_BUF_SIZE];
+// Raw uint16_t buffer for RGB565.  Using lv_color_t is wrong here because
+// in LVGL 9 lv_color_t is 24/32-bit, but the display render format is still
+// RGB565 (2 bytes/pixel) when LV_COLOR_DEPTH == 16.
+#define DRAW_BUF_PX   (480 * 320 / 10)
+static uint16_t      draw_buf_arr[DRAW_BUF_PX];
 static lv_display_t * disp = nullptr;
 
 // ─── LVGL tick source ────────────────────────────────────────────────────────
@@ -66,11 +66,14 @@ static void initLVGL()
 
     // Create and configure the display
     disp = lv_display_create(480, 320);
+    lv_display_set_color_format(disp, LV_COLOR_FORMAT_RGB565);
     lv_display_set_flush_cb(disp, my_disp_flush);
     lv_display_set_buffers(disp, draw_buf_arr, NULL,
                            sizeof(draw_buf_arr),
                            LV_DISPLAY_RENDER_MODE_PARTIAL);
-    Serial.println("[LVGL] display driver registered (480x320)");
+    Serial.printf("[LVGL] draw buf: %u px, %u bytes\n",
+                  (unsigned)DRAW_BUF_PX, (unsigned)sizeof(draw_buf_arr));
+    Serial.println("[LVGL] display driver registered (480x320, RGB565)");
 
     // Create and configure the input device
     lv_indev_t * indev = lv_indev_create();
