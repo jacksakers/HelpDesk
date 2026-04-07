@@ -84,7 +84,7 @@ static void build_header(lv_obj_t * scr)
 static lv_obj_t * make_btn(lv_obj_t * scr, const char * label,
                             uint32_t color, int x, int y, int w, int h)
 {
-    lv_obj_t * btn = lv_btn_create(scr);
+    lv_obj_t * btn = lv_button_create(scr);
     lv_obj_set_size(btn, w, h);
     lv_obj_set_pos(btn, x, y);
     lv_obj_set_style_bg_color(btn, lv_color_hex(color), 0);

@@ -92,7 +92,7 @@ static void build_game_btn(lv_obj_t * scr, const char * label,
 
     lv_obj_t * soon_lbl = lv_label_create(btn);
     lv_label_set_text(soon_lbl, "Coming Soon");
-    lv_obj_set_style_text_color(soon_lbl, lv_color_hex(0xFFFFFF80), 0);
+    lv_obj_set_style_text_color(soon_lbl, lv_color_hex(0xAAAAAA), 0);
     lv_obj_align(soon_lbl, LV_ALIGN_RIGHT_MID, -12, 0);
 }
 

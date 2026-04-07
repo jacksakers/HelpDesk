@@ -23,17 +23,36 @@
 
 void setup()
 {
+    // ── VERY FIRST THING: blink the backlight so we KNOW the code runs ──
+    // This proves the firmware flashed correctly even if Serial is broken.
+    pinMode(38, OUTPUT);
+    for(int i = 0; i < 6; i++) {          // 3 quick blinks
+        digitalWrite(38, i & 1 ? LOW : HIGH);
+        delay(150);
+    }
+    digitalWrite(38, HIGH);               // leave backlight ON
+
     Serial.begin(115200);
 
-    // Give USB-CDC time to enumerate so we see early prints.
-    // On ESP32-S3, Serial over native USB isn't ready instantly.
-    delay(1500);
+    // USB-CDC on ESP32-S3 needs time to enumerate. Wait up to 3 s.
+    unsigned long t0 = millis();
+    while(!Serial && (millis() - t0 < 3000)) { delay(10); }
+
     Serial.println();
+    Serial.println("===================================");
     Serial.println("===== HelpDesk starting =====");
-    Serial.printf("Free heap: %u  PSRAM: %u\n", ESP.getFreeHeap(), ESP.getFreePsram());
+    Serial.println("===================================");
+    Serial.printf("Free heap : %u bytes\n", ESP.getFreeHeap());
+    Serial.printf("Free PSRAM: %u bytes\n", ESP.getFreePsram());
+    Serial.printf("SDK       : %s\n", ESP.getSdkVersion());
+    Serial.flush();
 
     // 1. Hardware: display + touch + LVGL must come first
+    Serial.println("[setup] Calling initDisplay...");
+    Serial.flush();
     initDisplay();
+    Serial.println("[setup] initDisplay done");
+    Serial.flush();
 
     // 2. UI: build the launcher screen
     ui_init();
