@@ -94,7 +94,7 @@ static void build_body(lv_obj_t * scr)
     lv_label_set_text(song_lbl, "No track loaded");
     lv_obj_set_style_text_color(song_lbl, lv_color_white(), 0);
     lv_obj_align(song_lbl, LV_ALIGN_TOP_MID, 0, ART_Y + ART_SIZE + 8);
-    lv_label_set_long_mode(song_lbl, LV_LABEL_LONG_CIRCULAR);
+    lv_label_set_long_mode(song_lbl, LV_LABEL_LONG_SCROLL);
     lv_obj_set_width(song_lbl, 260);
     ui_SongLabel = song_lbl;
 
