@@ -25,6 +25,13 @@ void setup()
 {
     Serial.begin(115200);
 
+    // Give USB-CDC time to enumerate so we see early prints.
+    // On ESP32-S3, Serial over native USB isn't ready instantly.
+    delay(1500);
+    Serial.println();
+    Serial.println("===== HelpDesk starting =====");
+    Serial.printf("Free heap: %u  PSRAM: %u\n", ESP.getFreeHeap(), ESP.getFreePsram());
+
     // 1. Hardware: display + touch + LVGL must come first
     initDisplay();
 
