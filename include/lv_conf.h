@@ -19,14 +19,16 @@
 #define LV_COLOR_DEPTH 16
 
 /* ── Memory ───────────────────────────────────────────────── */
-/* Use stdlib malloc — simpler than the built-in pool on ESP32 */
-#define LV_USE_STDLIB_MALLOC    LV_STDLIB_CLIB
-#define LV_USE_STDLIB_STRING    LV_STDLIB_CLIB
-#define LV_USE_STDLIB_SPRINTF   LV_STDLIB_CLIB
+/* Use LVGL's built-in allocator (safest on ESP32).            */
+/* The numeric constants must be used here because lv_conf.h   */
+/* is parsed before LVGL's own headers define the macros.      */
+#define LV_USE_STDLIB_MALLOC    0       /* 0 = LV_STDLIB_BUILTIN */
+#define LV_USE_STDLIB_STRING    0
+#define LV_USE_STDLIB_SPRINTF   0
 #define LV_MEM_SIZE             (48 * 1024)
 
 /* ── Display ──────────────────────────────────────────────── */
-#define LV_USE_OS               LV_OS_NONE
+#define LV_USE_OS               0       /* 0 = LV_OS_NONE */
 #define LV_DEF_REFR_PERIOD      33      /* ~30 fps */
 
 /* ── Logging (enable during development, disable for release) */
