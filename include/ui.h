@@ -34,6 +34,7 @@ extern "C" {
 #include "ui_Screen6.h"   /* ZenFrame         */
 #include "ui_Screen7.h"   /* PCMonitor        */
 #include "ui_Screen8.h"   /* GameBreak        */
+#include "ui_Screen9.h"   /* Settings         */
 
 /* ── Shared LVGL event object (SquareLine pattern) ─────────── */
 extern lv_obj_t * ui____initial_actions0;

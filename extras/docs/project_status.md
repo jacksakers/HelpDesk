@@ -113,6 +113,7 @@ HelpDesk/
 | Display     | initDisplay()      | (in flush callback)     | ✓ Working   |
 | Touch Input | (in LovyanGFX)     | (in touch_read cb)      | ✓ Working   |
 | WiFi        | connectToWiFi()    | —                       | ✓ Working   |
+| Buzzer      | buzzerInit()       | buzzerLoop()            | ✓ Working   |
 | NTP Time    | initNTP()          | handleTimeUpdate()      | Not wired   |
 | Weather     | getWeatherData()   | handleWeatherUpdate()   | Not wired   |
 | Music       | audioInit()        | audioLoop()             | Not wired   |

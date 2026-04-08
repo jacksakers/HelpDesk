@@ -6,6 +6,7 @@
 #include <lvgl.h>
 #include "display_Screen.h"
 #include "LovyanGFX_Driver.h"
+#include "buzzer.h"
 #include <Arduino.h>
 #include <Wire.h>
 
@@ -70,6 +71,8 @@ static void my_disp_flush(lv_display_t * d, const lv_area_t * area, uint8_t * px
 static void my_touchpad_read(lv_indev_t * indev, lv_indev_data_t * data)
 {
     (void)indev;
+    static lv_indev_state_t last_state = LV_INDEV_STATE_RELEASED;
+
     if(gfx.getTouch(&data->point.x, &data->point.y)) {
         data->state = LV_INDEV_STATE_PRESSED;
         // Log first few touch events
@@ -80,7 +83,12 @@ static void my_touchpad_read(lv_indev_t * indev, lv_indev_data_t * data)
         }
     } else {
         data->state = LV_INDEV_STATE_RELEASED;
+        /* PRESS → RELEASE transition: fire the click-feedback tone */
+        if(last_state == LV_INDEV_STATE_PRESSED) {
+            buzzerPlay(buzzerGetClickTone());
+        }
     }
+    last_state = data->state;
 }
 
 // ─── LVGL init (v9 API) ──────────────────────────────────────────────────────

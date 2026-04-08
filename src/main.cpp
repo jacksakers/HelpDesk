@@ -9,6 +9,7 @@
 
 #include "display_Screen.h"
 #include "wifi_connect.h"
+#include "buzzer.h"
 
 // ─── Forward declarations for feature modules (add headers as you build them) ─
 // #include "get_time.h"
@@ -48,6 +49,10 @@ void setup()
     Serial.println("[setup] Calling initDisplay...");
     Serial.flush();
     initDisplay();
+
+    // 1b. Buzzer: init after display so LEDC is ready
+    buzzerInit();
+    Serial.println("[setup] Buzzer ready (GPIO 8)");
     Serial.println("[setup] initDisplay done");
     Serial.flush();
 
@@ -74,6 +79,9 @@ void loop()
 {
     // Let LVGL process animations, touch events, and redraws
     lv_timer_handler();
+
+    // Advance non-blocking multi-note buzzer sequences
+    buzzerLoop();
 
     // ── Tick watchdog: print every 5 s so we know lv_timer_handler is running
     static unsigned long last_tick_log = 0;

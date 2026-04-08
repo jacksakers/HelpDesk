@@ -49,4 +49,5 @@ void ui_destroy(void)
     ui_Screen6_screen_destroy();
     ui_Screen7_screen_destroy();
     ui_Screen8_screen_destroy();
+    ui_Screen9_screen_destroy();
 }

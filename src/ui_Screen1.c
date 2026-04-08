@@ -52,6 +52,13 @@ static void tile_clicked_ev(lv_event_t * e)
     _ui_screen_change(app->screen, LV_SCREEN_LOAD_ANIM_MOVE_LEFT, 300, 0, app->init);
 }
 
+static void settings_btn_ev(lv_event_t * e)
+{
+    (void)e;
+    _ui_screen_change(&ui_Screen9, LV_SCREEN_LOAD_ANIM_MOVE_LEFT, 300, 0,
+                      ui_Screen9_screen_init);
+}
+
 /* ── Private helpers ───────────────────────────────────────── */
 static void build_header(lv_obj_t * scr)
 {
@@ -69,6 +76,23 @@ static void build_header(lv_obj_t * scr)
     lv_label_set_text(title, "HelpDesk");
     lv_obj_set_style_text_color(title, lv_color_white(), 0);
     lv_obj_center(title);
+
+    /* Settings gear button — upper-right corner */
+    lv_obj_t * gear_btn = lv_button_create(hdr);
+    lv_obj_set_size(gear_btn, 38, HDR_H - 2);
+    lv_obj_set_pos(gear_btn, SCREEN_W - 40, 1);
+    lv_obj_set_style_bg_color(gear_btn, lv_color_hex(CLR_HDR), 0);
+    lv_obj_set_style_bg_color(gear_btn, lv_color_hex(0x0D1321),
+                              LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(gear_btn, 0, 0);
+    lv_obj_set_style_shadow_width(gear_btn, 0, 0);
+    lv_obj_set_style_pad_all(gear_btn, 0, 0);
+    lv_obj_add_event_cb(gear_btn, settings_btn_ev, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t * gear_ico = lv_label_create(gear_btn);
+    lv_label_set_text(gear_ico, LV_SYMBOL_SETTINGS);
+    lv_obj_set_style_text_color(gear_ico, lv_color_white(), 0);
+    lv_obj_center(gear_ico);
 }
 
 static void build_one_tile(lv_obj_t * scr, uint8_t idx)
