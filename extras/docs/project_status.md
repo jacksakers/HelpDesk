@@ -4,6 +4,17 @@ Last updated: 2026-04-07
 
 ---
 
+## Documentation
+
+📚 **New to this project? Start here:**
+- `README_ON_EVERY_PROMPT.md` — Documentation philosophy and workflow
+- `doc_index.md` — Master index (maps topics to docs)
+- `lessons_learned.md` — Key insights from hardware bring-up
+
+Working example code: `extras/examples/Desktop_Assistant_35/`
+
+---
+
 ## Hardware
 
 | Component         | Detail                                         |
