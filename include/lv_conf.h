@@ -576,7 +576,12 @@
 #define LV_USE_FS_ARDUINO_ESP_LITTLEFS 0
 
 /*API for Arduino Sd. */
-#define LV_USE_FS_ARDUINO_SD 0
+#define LV_USE_FS_ARDUINO_SD 1
+#if LV_USE_FS_ARDUINO_SD
+    #define LV_FS_ARDUINO_SD_LETTER     'S'   /* Drive letter: "S:/path/file" */
+    #define LV_FS_ARDUINO_SD_PATH       ""    /* Working directory (root)     */
+    #define LV_FS_ARDUINO_SD_CACHE_SIZE 0     /* No extra read cache          */
+#endif
 
 /*LODEPNG decoder library*/
 #define LV_USE_LODEPNG 0

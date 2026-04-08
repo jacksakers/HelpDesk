@@ -1,9 +1,10 @@
 // Project  : HelpDesk
 // File     : ui_Screen6.c
-// Purpose  : ZenFrame screen — digital photo frame placeholder layout
-// Depends  : ui.h (LVGL 9.x)
+// Purpose  : ZenFrame screen — digital photo frame (full-screen image cycling)
+// Depends  : ui.h (LVGL 9.x), zen_frame.h
 
 #include "ui.h"
+#include "zen_frame.h"
 
 /* ── Colours ───────────────────────────────────────────────── */
 #define CLR_BG      0x1A1A2E
@@ -16,11 +17,11 @@
 #define SCREEN_W    480
 #define SCREEN_H    320
 #define HDR_H        30
-/* Frame area fills most of the screen */
-#define FRAME_X      10
-#define FRAME_Y      38
-#define FRAME_W     300
-#define FRAME_H     160
+/* Image fills the full width below the header */
+#define IMG_X        0
+#define IMG_Y        HDR_H
+#define IMG_W        SCREEN_W
+#define IMG_H        (SCREEN_H - HDR_H)
 
 /* ── Public objects ────────────────────────────────────────── */
 lv_obj_t * ui_Screen6  = NULL;
@@ -31,6 +32,12 @@ static void back_to_launcher_ev(lv_event_t * e)
 {
     _ui_screen_change(&ui_Screen1, LV_SCREEN_LOAD_ANIM_MOVE_RIGHT, 300, 0,
                       ui_Screen1_screen_init);
+}
+
+static void tap_skip_ev(lv_event_t * e)
+{
+    (void)e;
+    zenFrameNext();   /* Advance to next image on tap */
 }
 
 /* ── Private helpers ───────────────────────────────────────── */
@@ -70,38 +77,48 @@ static void build_header(lv_obj_t * scr)
 
 static void build_body(lv_obj_t * scr)
 {
-    /* Image frame border */
-    lv_obj_t * frame = lv_obj_create(scr);
-    lv_obj_set_size(frame, FRAME_W, FRAME_H);
-    lv_obj_set_pos(frame, FRAME_X, FRAME_Y);
-    lv_obj_remove_flag(frame, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(frame, lv_color_hex(CLR_PANEL), 0);
-    lv_obj_set_style_bg_opa(frame, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(frame, lv_color_hex(CLR_ACCENT), 0);
-    lv_obj_set_style_border_width(frame, 2, 0);
-    lv_obj_set_style_radius(frame, 6, 0);
-    lv_obj_set_style_pad_all(frame, 0, 0);
+    /* Dark canvas below the header — fills the rest of the screen */
+    lv_obj_t * canvas = lv_obj_create(scr);
+    lv_obj_set_size(canvas, IMG_W, IMG_H);
+    lv_obj_set_pos(canvas, IMG_X, IMG_Y);
+    lv_obj_remove_flag(canvas, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(canvas, lv_color_hex(CLR_BG), 0);
+    lv_obj_set_style_bg_opa(canvas, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(canvas, 0, 0);
+    lv_obj_set_style_radius(canvas, 0, 0);
+    lv_obj_set_style_pad_all(canvas, 0, 0);
 
-    /* Image widget — updated by zen_frame.cpp once implemented */
-    lv_obj_t * img = lv_image_create(frame);
-    lv_obj_center(img);
+    /* Full-screen image widget — zen_frame.cpp updates the source */
+    lv_obj_t * img = lv_image_create(canvas);
+    lv_obj_set_size(img, IMG_W, IMG_H);
+    lv_obj_set_pos(img, 0, 0);
+    lv_image_set_inner_align(img, LV_IMAGE_ALIGN_STRETCH);
+    lv_obj_add_flag(img, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(img, tap_skip_ev, LV_EVENT_CLICKED, NULL);
     ui_ZenImage = img;
 
-    /* Placeholder icon + hint */
-    lv_obj_t * placeholder = lv_label_create(frame);
+    /* Placeholder shown when /images is empty or SD not mounted */
+    lv_obj_t * placeholder = lv_label_create(canvas);
     lv_label_set_text(placeholder,
-                      LV_SYMBOL_IMAGE "\n\nPlace .bin images in\n/images on SD card");
+                      LV_SYMBOL_IMAGE "\n\nAdd LVGL .bin images to\n/images on SD card\n\n"
+                      "Convert at lvgl.io/tools/imageconverter\n"
+                      "(LVGL v9 · RGB565 · 480\xC3\x97""320)");
     lv_obj_set_style_text_color(placeholder, lv_color_hex(CLR_ACCENT), 0);
     lv_obj_set_style_text_align(placeholder, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(placeholder, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(placeholder, FRAME_W - 20);
+    lv_obj_set_width(placeholder, IMG_W - 40);
     lv_obj_center(placeholder);
 
-    /* Interval hint below frame */
+    /* Subtle hint at the bottom of the image area */
     lv_obj_t * hint = lv_label_create(scr);
-    lv_label_set_text(hint, "Cycles every 5 min  |  Tap to skip");
+    lv_label_set_text(hint, "Cycles every 5 min  \xE2\x80\xA2  Tap to skip");
     lv_obj_set_style_text_color(hint, lv_color_hex(CLR_SUBTLE), 0);
-    lv_obj_align(hint, LV_ALIGN_BOTTOM_MID, 0, -8);
+    lv_obj_set_style_bg_color(hint, lv_color_hex(CLR_BG), 0);
+    lv_obj_set_style_bg_opa(hint, LV_OPA_70, 0);
+    lv_obj_set_style_pad_hor(hint, 8, 0);
+    lv_obj_set_style_pad_ver(hint, 2, 0);
+    lv_obj_set_style_radius(hint, 4, 0);
+    lv_obj_align(hint, LV_ALIGN_BOTTOM_MID, 0, -6);
 }
 
 /* ── Public lifecycle ──────────────────────────────────────── */
@@ -117,6 +134,9 @@ void ui_Screen6_screen_init(void)
 
     build_header(ui_Screen6);
     build_body(ui_Screen6);
+
+    /* Show whichever image is current in the zen_frame playlist */
+    zenFrameRefresh();
 }
 
 void ui_Screen6_screen_destroy(void)

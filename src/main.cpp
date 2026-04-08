@@ -10,6 +10,9 @@
 #include "display_Screen.h"
 #include "wifi_connect.h"
 #include "buzzer.h"
+#include "sd_card.h"
+#include "settings.h"
+#include "zen_frame.h"
 #include "get_time.h"
 #include "weather.h"
 #include "pomo_timer.h"
@@ -52,9 +55,18 @@ void setup()
     Serial.println("[setup] initDisplay done");
     Serial.flush();
 
+    // 1c. SD card: mount before settings and zen_frame need it
+    sdCardInit();
+
+    // 1d. Settings: load persisted values and apply to subsystems (buzzer etc.)
+    settingsInit();
+
     // 2. UI: build the launcher screen
     ui_init();
     Serial.println("[HelpDesk] Display and UI ready.");
+
+    // 2b. ZenFrame: scan /images playlist (ui_ZenImage may be NULL until Screen6 opens)
+    zenFrameInit();
 
     // 3. Network: connect once; feature modules rely on this
     connectToWiFi();
@@ -91,6 +103,7 @@ void loop()
     handleTimeUpdate(now);
     handleWeatherUpdate(now);
     handlePomoTimer(now);
+    handleZenFrame(now);
     // handlePcMonitor(now);
     // audioLoop();
 

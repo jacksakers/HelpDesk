@@ -98,6 +98,8 @@ HelpDesk/
 | 1      | Launcher | Home/app drawer            | Implemented  |
 | 2      | DeskDash | Clock + weather display    | Implemented  |
 | 3      | Tomatimer| Pomodoro timer             | Implemented  |
+| 6      | ZenFrame | Digital photo frame        | Implemented  |
+| 9      | Settings | Sound mute + tone style    | Implemented  |
 | 4      | unknown  | TBD                        | Placeholder  |
 | 5      | unknown  | TBD                        | Placeholder  |
 | 6      | unknown  | TBD                        | Placeholder  |
@@ -114,11 +116,13 @@ HelpDesk/
 | Touch Input | (in LovyanGFX)     | (in touch_read cb)      | ✓ Working   |
 | WiFi        | connectToWiFi()    | —                       | ✓ Working   |
 | Buzzer      | buzzerInit()       | buzzerLoop()            | ✓ Working   |
+| SD Card     | sdCardInit()       | —                       | ✓ Working   |
+| Settings    | settingsInit()     | —                       | ✓ Working   |
 | NTP Time    | initNTP()          | handleTimeUpdate()      | ✓ Wired      |
 | Weather     | getWeatherData()   | handleWeatherUpdate()   | ✓ Wired (needs API key) |
+| ZenFrame    | zenFrameInit()     | handleZenFrame()        | ✓ Working   |
 | Music       | audioInit()        | audioLoop()             | Not wired   |
 | Alarm       | initAlarmClock()   | handleAlarmClock()      | Not wired   |
-| Timer       | initTimer()        | handleTimer()           | Not wired   |
 | PC Monitor  | pcMonitorInit()    | handlePcMonitor()       | Not started |
 | Tomatimer   | initPomoTimer()    | handlePomoTimer()       | ✓ Wired      |
 

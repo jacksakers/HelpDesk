@@ -5,6 +5,7 @@
 
 #include "ui.h"
 #include "buzzer.h"
+#include "settings.h"
 
 /* ── Colours ───────────────────────────────────────────────── */
 #define CLR_BG           0x1A1A2E
@@ -61,6 +62,7 @@ static void sound_switch_ev(lv_event_t * e)
     buzzerSetMuted(!sound_on);
     /* Play a confirmation ding when the user turns sound back ON */
     if(sound_on) buzzerPlay(BUZZ_TONE_SUCCESS);
+    settingsSave();   /* Persist the new muted state */
 }
 
 static void tone_btn_ev(lv_event_t * e)
@@ -69,6 +71,7 @@ static void tone_btn_ev(lv_event_t * e)
     buzzerSetClickTone(tone);
     refresh_tone_selection();
     buzzerPlay(tone);   /* Preview the selected tone immediately */
+    settingsSave();     /* Persist the new tone choice */
 }
 
 /* ── Build helpers ─────────────────────────────────────────── */

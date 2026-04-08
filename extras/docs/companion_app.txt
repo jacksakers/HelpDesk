@@ -1,0 +1,99 @@
+Product Design Document: HelpDesk Companion App (Host PC)
+
+1. Concept Overview
+
+The HelpDesk Companion App is a lightweight Python application that runs in the background on the user's host machine (Windows/Mac/Linux). It serves two primary purposes:
+
+Telemetry & Integration Engine: It actively monitors host PC statistics (CPU, RAM, media playing) and pushes them to the HelpDesk device in real-time.
+
+Management Dashboard: It runs a local web server, providing a clean HTML/JS dashboard accessible via a desktop browser to manage the HelpDesk's internal storage, tasks, macros, and settings.
+
+2. Communication Architecture
+
+To achieve both high-speed real-time data and bulk file transfers, a hybrid communication approach is recommended:
+
+Serial (UART / USB): Used for low-latency, real-time data. The Python app uses the pyserial library to stream PC hardware metrics (CPU/RAM load), current time syncs, and macro button triggers (HelpDesk -> PC).
+
+Wi-Fi (Local Network): Used for bulk file transfers. The ESP32 hosts a simple HTTP server or FTP server. When the user uses the Python Web Dashboard to upload an MP3 or Photo, the Python app sends the file over the local Wi-Fi network to be saved on the HelpDesk's SD Card. (Sending large images/audio over Serial is notoriously slow).
+
+3. Web Dashboard Features (The HTML Frontend)
+
+The Python app will serve a local web page (e.g., accessible at http://localhost:8080 on the PC).
+
+A. Device Status Hub
+
+Live status of the HelpDesk (Connected/Disconnected).
+
+Current active app on the HelpDesk screen.
+
+Storage capacity remaining on the HelpDesk's SD card.
+
+B. Media Manager
+
+Photo Upload: Drag-and-drop interface to upload images. The Python backend will automatically resize and convert the images to the optimal format (e.g., .bmp or .rgb565 raw pixel arrays) before sending them to the ESP32 to save the microcontroller from doing heavy image processing.
+
+Audio Upload: Drag-and-drop MP3 uploads for the JukeDesk app.
+
+C. Task Sync (TaskMaster Manager)
+
+A text-input interface to quickly type out daily to-do lists.
+
+Clicking "Sync" pushes the list as a .json file to the HelpDesk.
+
+When a task is checked off on the physical HelpDesk screen, it updates the dashboard in real-time.
+
+D. Settings & Extensibility Setup
+
+Change the HelpDesk's UI theme colors.
+
+Configure the zip code for the OpenWeatherMap API.
+
+Macro Configurator: A UI to map HelpDesk buttons to local PC scripts or keyboard shortcuts.
+
+E. App & Game Installer (The "Game Engine")
+
+An "App Store" style tab for the device.
+
+Because flashing C++ code requires the Arduino IDE, the "Game Engine" could be implemented using an embedded scripting language on the ESP32 (like Lua or MicroPython).
+
+The dashboard allows you to upload small .lua or .py game scripts (like Snake or Pong), which the HelpDesk saves to the SD card and executes on demand.
+
+4. Host PC Integrations (Background Services)
+
+A. Hardware Telemetry
+
+Using the Python psutil library, the script checks CPU load, RAM usage, and GPU temperatures every second.
+
+Packs this data into a tiny JSON string (e.g., {"c": 45, "r": 60}) and sends it over the USB Serial port for the HelpDesk's PC Monitor app.
+
+B. Extensible Macro Engine ("StreamDeck" Mode)
+
+The HelpDesk can display grids of customizable buttons, sending generic trigger events over Serial (e.g., {"event": "btn_press", "id": "macro_1"}).
+
+Plugin Architecture: The Python companion app will feature a modular plugin system or read from a macros.json configuration file. This allows the user to define exactly what happens when "macro_1" is pressed without touching the core server code.
+
+Capabilities: Using libraries like pyautogui, keyboard, or subprocess, macros can launch applications, type text strings, execute batch scripts, or trigger complex multi-step workflows.
+
+C. Event-Driven Triggers
+
+To keep the system as extensible as possible, the HelpDesk will emit generalized events for major actions (e.g., {"event": "timer_started", "duration": 25}, {"event": "task_completed"}).
+
+Users can write custom Python handler scripts in the Companion App to react to these events however they see fit—whether that's muting Discord, turning on a smart light via a local network API, or hitting a webhook.
+
+D. "Now Playing" Media Sync
+
+The Python app hooks into the OS media controls to read the currently playing song on Spotify/Apple Music.
+
+It pushes the Song Title and Artist to the HelpDesk screen to act as a dedicated media display.
+
+5. Proposed Technology Stack (Host Side)
+
+Backend Language: Python 3.10+
+
+Web Framework: FastAPI. It is incredibly fast, easy to set up for local APIs, and has excellent built-in support for WebSockets (which is perfect for a real-time updating dashboard).
+
+Hardware/System Monitoring: psutil (for CPU/RAM stats).
+
+Serial Communication: pyserial (for talking to the ESP32 over USB).
+
+Frontend UI: Pure HTML/Tailwind CSS/Vanilla JS, served directly from a FastAPI static folder to keep the footprint as light as possible.
