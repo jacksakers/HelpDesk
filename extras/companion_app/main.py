@@ -177,6 +177,32 @@ async def update_settings(body: _SettingsBody):
 async def _on_serial_event(data: dict) -> None:
     """Routes JSON events received from the ESP32 to the right handler."""
     event = data.get("event")
+
+    if event == "hello":
+        ip = data.get("ip", "")
+        # Auto-save device IP when we learn it (skip placeholder 0.0.0.0)
+        if ip and ip != "0.0.0.0" and not settings_store.get("device_ip"):
+            settings_store.save({"device_ip": ip})
+            logging.info(f"[Handshake] Auto-saved device IP: {ip}")
+        await _manager.broadcast({
+            "type":         "device_info",
+            "ip":           ip,
+            "ssid":         data.get("ssid", ""),
+            "fw":           data.get("fw", ""),
+            "sd_ok":        data.get("sd_ok", False),
+            "sd_total_mb":  data.get("sd_total_mb", 0),
+            "sd_used_mb":   data.get("sd_used_mb", 0),
+        })
+        return
+
+    if event == "status":
+        await _manager.broadcast({
+            "type":       "device_status",
+            "screen":     data.get("screen", ""),
+            "sd_used_mb": data.get("sd_used_mb", 0),
+        })
+        return
+
     if event == "btn_press":
         macro_id = data.get("id", "")
         logging.info(f"ESP32 macro trigger: {macro_id}")
@@ -200,6 +226,7 @@ async def _on_connect_change(connected: bool) -> None:
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(serial_comm.listener(_on_serial_event, _on_connect_change))
+    asyncio.create_task(serial_comm.timesync_loop())
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────

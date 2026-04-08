@@ -6,6 +6,7 @@
 import asyncio
 import json
 import logging
+import time
 from typing import Callable, Awaitable, Optional
 
 try:
@@ -71,7 +72,18 @@ def send(payload: str) -> bool:
         return False
 
 
-async def listener(
+async def timesync_loop() -> None:
+    """
+    Sends a Unix timestamp to the device every 5 minutes so it can maintain
+    accurate time without waiting for an NTP sync.
+    Format: {"event":"timesync","ts":<unix_epoch>}
+    """
+    while True:
+        await asyncio.sleep(300)   # 5 minutes
+        if is_connected():
+            ts = int(time.time())
+            send(f'{{"event":"timesync","ts":{ts}}}\n')
+            logging.debug(f"[Handshake] Sent timesync ts={ts}")
     on_event: Callable[[dict], Awaitable[None]],
     on_connect_change: Optional[Callable[[bool], Awaitable[None]]] = None,
 ) -> None:
@@ -94,6 +106,11 @@ async def listener(
                 _was_connected = now_connected
                 if on_connect_change:
                     await on_connect_change(now_connected)
+                if now_connected:
+                    # Introduce ourselves; device replies with a full hello packet.
+                    ts = int(time.time())
+                    send(f'{{"event":"host_hello","ts":{ts}}}\n')
+                    logging.info("[Handshake] Sent host_hello to device.")
 
             if now_connected:
                 try:

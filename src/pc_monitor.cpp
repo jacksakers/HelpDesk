@@ -1,16 +1,17 @@
 // Project  : HelpDesk
 // File     : pc_monitor.cpp
-// Purpose  : PC metrics receiver — parses {"c":45,"r":60} from companion serial stream
-// Depends  : pc_monitor.h, ui_Screen7.h, ArduinoJson
+// Purpose  : PC metrics receiver — parses companion serial stream; dispatches device events
+// Depends  : pc_monitor.h, handshake.h, ui_Screen7.h, ArduinoJson
 
 #include "pc_monitor.h"
+#include "handshake.h"
 #include "ui_Screen7.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
 // ── Constants ────────────────────────────────────────────────────────────────
 #define PC_MONITOR_TIMEOUT_MS  6000UL   // Show "Disconnected" after 6 s without data
-#define LINE_BUF_SZ              96     // Companion payload is ~30 chars; headroom for safety
+#define LINE_BUF_SZ             224     // Sized for the largest companion packet (hello ~190 chars)
 
 // ── Private state ────────────────────────────────────────────────────────────
 static char          s_line[LINE_BUF_SZ];
@@ -53,7 +54,20 @@ static void process_line(const char * json)
     DeserializationError err = deserializeJson(doc, json);
     if (err) return;    /* Silently drop malformed JSON */
 
-    /* Companion telemetry packet: {"c":<cpu>,"r":<ram>} */
+    /* --- Dispatch named events from the companion app --- */
+    const char * event = doc["event"] | "";
+    if (event[0] != '\0') {
+        if (strcmp(event, "host_hello") == 0) {
+            /* Companion just connected — reply with our full device info. */
+            Serial.println("[Handshake] host_hello received; sending hello.");
+            handshakeSendHello();
+        }
+        /* timesync: companion sends {"event":"timesync","ts":<unix_epoch>}.
+           TODO: pass ts to an RTC/NTP module when that module is ready. */
+        return;   /* Events are not telemetry packets — do not update bars. */
+    }
+
+    /* --- Companion telemetry packet: {"c":<cpu>,"r":<ram>} --- */
     int cpu = doc["c"] | -1;
     int ram = doc["r"] | -1;
 
