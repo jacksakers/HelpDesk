@@ -15,7 +15,11 @@
 /* ── In-memory mirror of persisted values ────────────────────────────────── */
 static bool        s_sound_muted = false;
 static buzz_tone_t s_click_tone  = BUZZ_TONE_CLICK;
-
+static char s_wifi_ssid[64]     = "";
+static char s_wifi_password[64] = "";
+static char s_owm_key[64]       = "";
+static char s_owm_city[64]      = "";
+static char s_owm_units[12]     = "imperial";
 /* ── Parse one "key=value" line and store into the mirror ───────────────── */
 static void apply_kv(const char * key, const char * val)
 {
@@ -26,6 +30,21 @@ static void apply_kv(const char * key, const char * val)
         if (t >= 0 && t < (int)BUZZ_TONE_COUNT) {
             s_click_tone = (buzz_tone_t)t;
         }
+    } else if (strcmp(key, "wifi_ssid") == 0) {
+        strncpy(s_wifi_ssid, val, sizeof(s_wifi_ssid) - 1);
+        s_wifi_ssid[sizeof(s_wifi_ssid) - 1] = '\0';
+    } else if (strcmp(key, "wifi_password") == 0) {
+        strncpy(s_wifi_password, val, sizeof(s_wifi_password) - 1);
+        s_wifi_password[sizeof(s_wifi_password) - 1] = '\0';
+    } else if (strcmp(key, "owm_key") == 0) {
+        strncpy(s_owm_key, val, sizeof(s_owm_key) - 1);
+        s_owm_key[sizeof(s_owm_key) - 1] = '\0';
+    } else if (strcmp(key, "owm_city") == 0) {
+        strncpy(s_owm_city, val, sizeof(s_owm_city) - 1);
+        s_owm_city[sizeof(s_owm_city) - 1] = '\0';
+    } else if (strcmp(key, "owm_units") == 0) {
+        strncpy(s_owm_units, val, sizeof(s_owm_units) - 1);
+        s_owm_units[sizeof(s_owm_units) - 1] = '\0';
     }
     /* Unknown keys are silently ignored for forwards compatibility */
 }
@@ -68,14 +87,22 @@ void settingsInit(void)
     /* Set defaults first, then override from file */
     s_sound_muted = false;
     s_click_tone  = BUZZ_TONE_CLICK;
+    s_wifi_ssid[0]     = '\0';
+    s_wifi_password[0] = '\0';
+    s_owm_key[0]       = '\0';
+    s_owm_city[0]      = '\0';
+    strncpy(s_owm_units, "imperial", sizeof(s_owm_units) - 1);
     load_from_sd();
 
     /* Push loaded values into their respective subsystems */
     buzzerSetMuted(s_sound_muted);
     buzzerSetClickTone(s_click_tone);
 
-    Serial.printf("[Settings] Applied: sound_muted=%d  click_tone=%d\n",
-                  (int)s_sound_muted, (int)s_click_tone);
+    Serial.printf("[Settings] Applied: sound_muted=%d  click_tone=%d  wifi=%s  city=%s  units=%s\n",
+                  (int)s_sound_muted, (int)s_click_tone,
+                  s_wifi_ssid[0] ? s_wifi_ssid : "(none)",
+                  s_owm_city[0]  ? s_owm_city  : "(none)",
+                  s_owm_units);
 }
 
 void settingsSave(void)
@@ -98,8 +125,13 @@ void settingsSave(void)
     }
 
     f.printf("# HelpDesk settings — edited by device\n");
-    f.printf("sound_muted=%d\n", (int)s_sound_muted);
-    f.printf("click_tone=%d\n",  (int)s_click_tone);
+    f.printf("sound_muted=%d\n",   (int)s_sound_muted);
+    f.printf("click_tone=%d\n",    (int)s_click_tone);
+    f.printf("wifi_ssid=%s\n",     s_wifi_ssid);
+    f.printf("wifi_password=%s\n", s_wifi_password);
+    f.printf("owm_key=%s\n",       s_owm_key);
+    f.printf("owm_city=%s\n",      s_owm_city);
+    f.printf("owm_units=%s\n",     s_owm_units);
     f.close();
 
     Serial.printf("[Settings] Saved: sound_muted=%d  click_tone=%d\n",
@@ -111,3 +143,18 @@ void settingsSetSoundMuted(bool muted)  { s_sound_muted = muted; buzzerSetMuted(
 
 buzz_tone_t settingsGetClickTone(void)          { return s_click_tone; }
 void        settingsSetClickTone(buzz_tone_t t) { s_click_tone = t; buzzerSetClickTone(t); }
+
+const char * settingsGetWifiSSID(void)                  { return s_wifi_ssid; }
+void         settingsSetWifiSSID(const char * v)        { strncpy(s_wifi_ssid, v, sizeof(s_wifi_ssid) - 1); s_wifi_ssid[sizeof(s_wifi_ssid)-1] = '\0'; }
+
+const char * settingsGetWifiPassword(void)              { return s_wifi_password; }
+void         settingsSetWifiPassword(const char * v)    { strncpy(s_wifi_password, v, sizeof(s_wifi_password) - 1); s_wifi_password[sizeof(s_wifi_password)-1] = '\0'; }
+
+const char * settingsGetOwmKey(void)                    { return s_owm_key; }
+void         settingsSetOwmKey(const char * v)          { strncpy(s_owm_key, v, sizeof(s_owm_key) - 1); s_owm_key[sizeof(s_owm_key)-1] = '\0'; }
+
+const char * settingsGetOwmCity(void)                   { return s_owm_city; }
+void         settingsSetOwmCity(const char * v)         { strncpy(s_owm_city, v, sizeof(s_owm_city) - 1); s_owm_city[sizeof(s_owm_city)-1] = '\0'; }
+
+const char * settingsGetOwmUnits(void)                  { return s_owm_units; }
+void         settingsSetOwmUnits(const char * v)        { strncpy(s_owm_units, v, sizeof(s_owm_units) - 1); s_owm_units[sizeof(s_owm_units)-1] = '\0'; }

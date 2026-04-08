@@ -41,6 +41,7 @@ void sdCardInit(void)
 
     /* Create expected directories if they are absent */
     if (!SD.exists("/images"))   SD.mkdir("/images");
+    if (!SD.exists("/mp3"))      SD.mkdir("/mp3");
     if (!SD.exists("/settings")) SD.mkdir("/settings");
 }
 

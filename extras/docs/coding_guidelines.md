@@ -19,6 +19,11 @@ Every `.c/.cpp` source file has one job.  Name the file after that job.
 
 Do **not** mix unrelated logic in one file (e.g. no Wi-Fi code inside a screen file).
 
+
+### 1.a. Keep Things DRY!
+
+If there is some logic that is going to be reused and potentially repeated in many modules, add it to a utils file. All logic should only exist once in the codebase and should not be repeated. 
+
 ---
 
 ## 2. One Responsibility Per Function

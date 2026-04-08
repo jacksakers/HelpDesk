@@ -75,12 +75,34 @@ def save_audio(file_bytes: bytes, filename: str) -> Path:
 
 async def upload_to_device(local_path: Path, remote_path: str, device_ip: str) -> bool:
     """
-    Sends a file to the HelpDesk SD card via HTTP PUT.
-    The ESP32 must be running its built-in HTTP upload endpoint.
+    Sends a processed file to the HelpDesk SD card via HTTP multipart POST.
+    Routes on the ESP32:
+      POST http://{device_ip}/upload/image  ->  saved to /images/<filename>
+      POST http://{device_ip}/upload/audio  ->  saved to /mp3/<filename>
     Returns True on success.
-
-    TODO: implement once ESP32-side HTTP upload server is built.
-          e.g. PUT http://{device_ip}/upload{remote_path}
     """
-    logging.info(f"[Media] TODO: upload {local_path.name} → http://{device_ip}{remote_path}")
+    try:
+        import httpx
+    except ImportError:
+        logging.warning("[Media] httpx not installed — device upload skipped. Run: pip install httpx")
+        return False
+
+    is_audio   = remote_path.startswith("/mp3/")
+    endpoint   = "audio" if is_audio else "image"
+    url        = f"http://{device_ip}/upload/{endpoint}"
+    mime       = "audio/mpeg" if is_audio else "image/bmp"
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            with local_path.open("rb") as fh:
+                resp = await client.post(
+                    url,
+                    files={"file": (local_path.name, fh, mime)},
+                )
+        if resp.status_code == 200:
+            logging.info(f"[Media] Sent {local_path.name} to device ({endpoint})")
+            return True
+        logging.warning(f"[Media] Device returned HTTP {resp.status_code} for {url}")
+    except Exception as e:
+        logging.error(f"[Media] Device upload failed: {e}")
     return False

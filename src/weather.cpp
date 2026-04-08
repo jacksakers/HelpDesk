@@ -1,9 +1,10 @@
-// Project  : HelpDesk
+﻿// Project  : HelpDesk
 // File     : weather.cpp
-// Purpose  : OpenWeatherMap weather fetch — updates DeskDash weather labels
-// Depends  : weather.h, ui_Screen2.h, ArduinoJson, HTTPClient, WiFi
+// Purpose  : OpenWeatherMap weather fetch -- updates DeskDash weather labels
+// Depends  : weather.h, ui_Screen2.h, settings.h, ArduinoJson, HTTPClient, WiFi
 
 #include "weather.h"
+#include "settings.h"
 #include "ui_Screen2.h"
 #include <Arduino.h>
 #include <WiFi.h>
@@ -13,7 +14,7 @@
 static unsigned long s_last_weather_ms = 0;
 #define WEATHER_INTERVAL_MS 600000UL   // 10 minutes
 
-// ─── Internal fetch ───────────────────────────────────────────────────────────
+// --- Internal fetch ----------------------------------------------------------
 void getWeatherData(void)
 {
     if (WiFi.status() != WL_CONNECTED) {
@@ -21,12 +22,25 @@ void getWeatherData(void)
         return;
     }
 
-    // Build URL — use q= (city name) for easy config; swap to id= for city ID
+    /* Runtime settings take priority; compile-time defines are the fallback. */
+    const char * key   = settingsGetOwmKey();
+    const char * city  = settingsGetOwmCity();
+    const char * units = settingsGetOwmUnits();
+    if (!key   || key[0]   == '\0') key   = HELPDESK_OWM_KEY;
+    if (!city  || city[0]  == '\0') city  = HELPDESK_OWM_CITY;
+    if (!units || units[0] == '\0') units = "imperial";
+
+    if (strcmp(key, "YOUR_API_KEY_HERE") == 0) {
+        Serial.println("[Weather] API key not set. Configure via companion app.");
+        if (ui_WeatherCondLabel) lv_label_set_text(ui_WeatherCondLabel, "No API key");
+        return;
+    }
+
     char url[256];
     snprintf(url, sizeof(url),
              "http://api.openweathermap.org/data/2.5/weather"
-             "?q=%s&units=imperial&appid=%s",
-             HELPDESK_OWM_CITY, HELPDESK_OWM_KEY);
+             "?q=%s&units=%s&appid=%s",
+             city, units, key);
 
     HTTPClient http;
     http.begin(url);
@@ -34,7 +48,6 @@ void getWeatherData(void)
 
     if (code != HTTP_CODE_OK) {
         Serial.printf("[Weather] HTTP error %d\n", code);
-        // Update label to show the error if Screen2 is active
         if (ui_WeatherCondLabel) lv_label_set_text(ui_WeatherCondLabel, "Fetch error");
         http.end();
         return;
@@ -43,7 +56,6 @@ void getWeatherData(void)
     String payload = http.getString();
     http.end();
 
-    // Parse JSON
     JsonDocument doc;
     DeserializationError err = deserializeJson(doc, payload);
     if (err) {
@@ -51,27 +63,25 @@ void getWeatherData(void)
         return;
     }
 
-    float   temp_f    = doc["main"]["temp"].as<float>();
-    float   temp_c    = (temp_f - 32.0f) * 5.0f / 9.0f;
-    int     humidity  = doc["main"]["humidity"].as<int>();
-    const char * cond = doc["weather"][0]["main"] | "Unknown";
-    const char * city = doc["name"] | HELPDESK_OWM_CITY;
+    float       temp  = doc["main"]["temp"].as<float>();
+    int         hum   = doc["main"]["humidity"].as<int>();
+    const char* cond  = doc["weather"][0]["main"] | "Unknown";
+    const char* city_ = doc["name"] | city;
 
-    char temp_str[12];
-    snprintf(temp_str, sizeof(temp_str), "%.1f°F / %.0f°C", temp_f, temp_c);
+    /* Format temperature in whichever units the API returned. */
+    const char * unit_sym = (strcmp(units, "metric") == 0) ? "\xC2\xB0C" : "\xC2\xB0F";
+    char temp_str[16];
+    snprintf(temp_str, sizeof(temp_str), "%.0f%s", temp, unit_sym);
 
-    Serial.printf("[Weather] %s: %s, %s, hum=%d%%\n", city, cond, temp_str, humidity);
+    Serial.printf("[Weather] %s: %s, %s, hum=%d%%\n", city_, cond, temp_str, hum);
 
-    // Update Screen2 labels only if they are live
     if (ui_WeatherLabel)     lv_label_set_text(ui_WeatherLabel,     temp_str);
     if (ui_WeatherCondLabel) lv_label_set_text(ui_WeatherCondLabel, cond);
 }
 
-// ─── Loop handler ─────────────────────────────────────────────────────────────
+// --- Loop handler ------------------------------------------------------------
 void handleWeatherUpdate(unsigned long now_ms)
 {
-    // On first call (s_last_weather_ms == 0) fetch immediately.
-    // Afterwards respect the 10-minute interval.
     if (now_ms - s_last_weather_ms < WEATHER_INTERVAL_MS &&
         s_last_weather_ms != 0) return;
 

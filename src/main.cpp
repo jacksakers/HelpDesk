@@ -16,6 +16,8 @@
 #include "get_time.h"
 #include "weather.h"
 #include "pomo_timer.h"
+#include "http_server.h"
+#include "pc_monitor.h"
 
 // ─── Update intervals ──────────────────────────────────────────────────────────
 #define NTP_SYNC_INTERVAL_MS     600000UL   // 10 minutes
@@ -75,6 +77,12 @@ void setup()
     // 4. Feature module init
     initNTP();
     initPomoTimer();
+    initPcMonitor();
+
+    // 5. HTTP server — must start after WiFi
+    if (WiFi.status() == WL_CONNECTED) {
+        httpServerInit();
+    }
 
     Serial.println("[HelpDesk] Init complete. Entering loop.");
 }
@@ -104,8 +112,8 @@ void loop()
     handleWeatherUpdate(now);
     handlePomoTimer(now);
     handleZenFrame(now);
-    // handlePcMonitor(now);
-    // audioLoop();
+    handlePcMonitor(now);
+    httpServerLoop();
 
     // 5 ms yield keeps the LVGL timer accurate without blocking touch input
     delay(5);

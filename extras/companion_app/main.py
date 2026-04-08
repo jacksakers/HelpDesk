@@ -150,9 +150,26 @@ async def get_settings():
 
 @app.post("/api/settings")
 async def update_settings(body: _SettingsBody):
-    """Saves updated device settings to device_settings.json."""
-    settings_store.save(body.model_dump(exclude_none=True))
-    return {"status": "saved"}
+    """Saves updated device settings locally and forwards them to the device if reachable."""
+    updates = body.model_dump(exclude_none=True)
+    settings_store.save(updates)
+
+    # Forward to the ESP32 over Wi-Fi so it can update its own SD-card settings file.
+    device_ip = settings_store.get("device_ip", "")
+    forwarded = False
+    if device_ip:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.post(
+                    f"http://{device_ip}/settings",
+                    json=updates,
+                )
+            forwarded = resp.status_code == 200
+        except Exception as e:
+            logging.warning(f"[Settings] Forward to device failed: {e}")
+
+    return {"status": "saved", "forwarded_to_device": forwarded}
 
 
 # ── Serial event routing ─────────────────────────────────────────────────────

@@ -27,6 +27,24 @@ void        settingsSetSoundMuted(bool muted);
 buzz_tone_t settingsGetClickTone(void);
 void        settingsSetClickTone(buzz_tone_t tone);
 
+// ── WiFi accessors ────────────────────────────────────────────────────────────
+// Returns a pointer to the in-memory string; valid until the next settingsSave.
+const char * settingsGetWifiSSID(void);
+void         settingsSetWifiSSID(const char * ssid);
+
+const char * settingsGetWifiPassword(void);
+void         settingsSetWifiPassword(const char * password);
+
+// ── OpenWeatherMap accessors ──────────────────────────────────────────────────
+const char * settingsGetOwmKey(void);
+void         settingsSetOwmKey(const char * key);
+
+const char * settingsGetOwmCity(void);    /* City name or zip code */
+void         settingsSetOwmCity(const char * city);
+
+const char * settingsGetOwmUnits(void);   /* "metric" or "imperial" */
+void         settingsSetOwmUnits(const char * units);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
