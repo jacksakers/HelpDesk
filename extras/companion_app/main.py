@@ -1,20 +1,39 @@
 ﻿# Project  : HelpDesk
 # File     : main.py
 # Purpose  : FastAPI app — routes, WebSocket hub, startup, and entry point
-# Depends  : serial_comm, telemetry, macros, static/index.html
+# Depends  : serial_comm, telemetry, macros, media_manager, settings_store, static/index.html
 
 import asyncio
 import logging
 from pathlib import Path
+from typing import Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 import uvicorn
 
 import serial_comm
 import telemetry
 import macros
+import media_manager
+import settings_store
+
+# ── Input validation constants ───────────────────────────────────────────────
+_VALID_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".gif"}
+_VALID_AUDIO_EXTS = {".mp3"}
+_MAX_IMAGE_BYTES  = 10 * 1024 * 1024   # 10 MB
+_MAX_AUDIO_BYTES  = 50 * 1024 * 1024   # 50 MB
+
+
+class _SettingsBody(BaseModel):
+    wifi_ssid:     Optional[str] = None
+    wifi_password: Optional[str] = None
+    owm_api_key:   Optional[str] = None
+    zip_code:      Optional[str] = None
+    units:         Optional[str] = None
+    device_ip:     Optional[str] = None
 
 app = FastAPI(title="HelpDesk Companion App")
 logging.basicConfig(level=logging.INFO)
@@ -85,6 +104,55 @@ async def trigger_macro(macro_id: str):
         "source": "dashboard",
     })
     return {"status": "success", "macro_id": macro_id, "message": action}
+
+
+# ── Media routes ─────────────────────────────────────────────────────────────
+
+@app.post("/api/media/image")
+async def upload_image(file: UploadFile = File(...)):
+    """Receives an image, resizes it to 480×320 BMP, saves locally, and attempts WiFi upload."""
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in _VALID_IMAGE_EXTS:
+        raise HTTPException(400, f"Invalid image type. Allowed: {sorted(_VALID_IMAGE_EXTS)}")
+    data = await file.read()
+    if len(data) > _MAX_IMAGE_BYTES:
+        raise HTTPException(413, "Image exceeds 10 MB limit")
+    processed, out_name = media_manager.process_image(data, file.filename or "image")
+    saved = media_manager.save_image(processed, out_name)
+    device_ip = settings_store.get("device_ip", "")
+    sent = await media_manager.upload_to_device(saved, f"/images/{out_name}", device_ip) if device_ip else False
+    return {"status": "ok", "filename": out_name, "sent_to_device": sent}
+
+
+@app.post("/api/media/audio")
+async def upload_audio(file: UploadFile = File(...)):
+    """Receives an MP3, saves locally, and attempts WiFi upload."""
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in _VALID_AUDIO_EXTS:
+        raise HTTPException(400, "Only .mp3 files are supported")
+    data = await file.read()
+    if len(data) > _MAX_AUDIO_BYTES:
+        raise HTTPException(413, "Audio exceeds 50 MB limit")
+    safe_name = file.filename or "audio.mp3"
+    saved = media_manager.save_audio(data, safe_name)
+    device_ip = settings_store.get("device_ip", "")
+    sent = await media_manager.upload_to_device(saved, f"/mp3/{saved.name}", device_ip) if device_ip else False
+    return {"status": "ok", "filename": saved.name, "sent_to_device": sent}
+
+
+# ── Settings routes ───────────────────────────────────────────────────────────
+
+@app.get("/api/settings")
+async def get_settings():
+    """Returns the current device settings (read from device_settings.json)."""
+    return settings_store.load()
+
+
+@app.post("/api/settings")
+async def update_settings(body: _SettingsBody):
+    """Saves updated device settings to device_settings.json."""
+    settings_store.save(body.model_dump(exclude_none=True))
+    return {"status": "saved"}
 
 
 # ── Serial event routing ─────────────────────────────────────────────────────

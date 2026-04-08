@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -7,34 +7,39 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen p-6 font-sans">
-    <div class="max-w-5xl mx-auto space-y-5">
+<div class="max-w-5xl mx-auto space-y-5">
 
-        <!-- ── Header ── -->
-        <div class="flex items-center justify-between bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
-            <div>
-                <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">HelpDesk Companion</h1>
-                <p class="text-gray-400 text-sm mt-0.5">Host PC Management Dashboard</p>
+    <!-- Header -->
+    <div class="flex items-center justify-between bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+        <div>
+            <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">HelpDesk Companion</h1>
+            <p class="text-gray-400 text-sm mt-0.5">Host PC Management Dashboard</p>
+        </div>
+        <div class="flex items-center gap-6 text-sm">
+            <div class="flex items-center gap-2">
+                <div id="ws-dot" class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
+                <span id="ws-text" class="text-gray-300">Dashboard</span>
             </div>
-            <div class="flex items-center gap-6 text-sm">
-                <div class="flex items-center gap-2">
-                    <div id="ws-dot" class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
-                    <span id="ws-text" class="text-gray-300">Dashboard</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div id="serial-dot" class="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>
-                    <span id="serial-text" class="text-gray-300">HelpDesk</span>
-                </div>
+            <div class="flex items-center gap-2">
+                <div id="serial-dot" class="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>
+                <span id="serial-text" class="text-gray-300">HelpDesk</span>
             </div>
         </div>
+    </div>
 
-        <!-- ── Row 1: Telemetry + Macros ── -->
+    <!-- Tab Navigation -->
+    <div class="flex gap-1 bg-gray-800 p-1 rounded-xl border border-gray-700">
+        <button id="tab-btn-status"   onclick="showTab('status')"   class="flex-1 py-2 px-4 rounded-lg text-sm font-medium bg-gray-700 text-white   transition">Status</button>
+        <button id="tab-btn-media"    onclick="showTab('media')"    class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">Media</button>
+        <button id="tab-btn-settings" onclick="showTab('settings')" class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">Settings</button>
+    </div>
+
+    <!-- STATUS TAB -->
+    <div id="tab-status" class="space-y-5">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-            <!-- Telemetry Card -->
+            <!-- Telemetry -->
             <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
-                <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <span>📊</span> Live PC Telemetry
-                </h2>
+                <h2 class="text-lg font-semibold mb-4">Live PC Telemetry</h2>
                 <div class="space-y-4">
                     <div>
                         <div class="flex justify-between text-sm mb-1">
@@ -57,155 +62,275 @@
                 </div>
                 <p class="text-xs text-gray-500 mt-4 italic">Streaming to HelpDesk over serial.</p>
             </div>
-
-            <!-- Macro Engine Card -->
+            <!-- Macros -->
             <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
-                <h2 class="text-lg font-semibold mb-1 flex items-center gap-2">
-                    <span>⚡</span> Macro Engine
-                </h2>
-                <p class="text-xs text-gray-500 mb-4">
-                    Trigger here or press a button on the HelpDesk device.
-                    Edit <code class="text-gray-400">macros.json</code> to configure actions.
-                </p>
-                <div class="grid grid-cols-2 gap-3" id="macro-grid">
-                    <!-- Populated by buildMacroGrid() -->
-                </div>
+                <h2 class="text-lg font-semibold mb-1">Macro Engine</h2>
+                <p class="text-xs text-gray-500 mb-4">Trigger here or press a button on the HelpDesk. Edit macros.json to configure.</p>
+                <div class="grid grid-cols-2 gap-3" id="macro-grid"></div>
             </div>
-
         </div>
-
-        <!-- ── Activity Log ── -->
+        <!-- Activity Log -->
         <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
             <div class="flex items-center justify-between mb-3">
-                <h2 class="text-lg font-semibold flex items-center gap-2">
-                    <span>📋</span> Activity Log
-                </h2>
+                <h2 class="text-lg font-semibold">Activity Log</h2>
                 <button onclick="clearLog()" class="text-xs text-gray-500 hover:text-gray-300 transition">Clear</button>
             </div>
             <div id="activity-log" class="space-y-1 max-h-52 overflow-y-auto font-mono text-sm">
                 <p id="log-empty" class="text-gray-500 text-xs italic">No events yet.</p>
             </div>
         </div>
-
     </div>
 
-    <script>
-        // ── Macro definitions ─────────────────────────────────────────────────
-        // Keep this list in sync with macros.json on the server.
-        const MACROS = [
-            { id: "mute_mic",  label: "Mute Mic",  color: "blue"    },
-            { id: "skip_song", label: "Skip Song", color: "emerald" },
-            { id: "macro_1",   label: "Macro 1",   color: "purple"  },
-            { id: "macro_2",   label: "Macro 2",   color: "orange"  },
-        ];
+    <!-- MEDIA TAB -->
+    <div id="tab-media" class="hidden space-y-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <!-- Image Upload -->
+            <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+                <h2 class="text-lg font-semibold mb-1">Image Upload</h2>
+                <p class="text-xs text-gray-500 mb-4">Resized to 480x320 and converted to BMP for the HelpDesk SD card.</p>
+                <div id="image-drop-zone"
+                    class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 transition"
+                    ondragover="event.preventDefault(); this.classList.add('border-blue-400')"
+                    ondragleave="this.classList.remove('border-blue-400')"
+                    ondrop="handleDrop(event,'image')"
+                    onclick="document.getElementById('image-input').click()">
+                    <p class="text-sm text-gray-400">Drop image here or <span class="text-blue-400">browse</span></p>
+                    <p class="text-xs text-gray-500 mt-1">JPG, PNG, BMP, GIF -- max 10 MB</p>
+                    <input type="file" id="image-input" class="hidden" accept=".jpg,.jpeg,.png,.bmp,.gif" onchange="handleFileSelect(event,'image')">
+                </div>
+                <div id="image-preview" class="mt-4 hidden">
+                    <div class="flex items-center justify-between bg-gray-700 rounded-lg px-3 py-2 text-sm">
+                        <span id="image-filename" class="text-gray-300 truncate mr-2"></span>
+                        <button onclick="uploadFile('image')" class="shrink-0 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-1.5 rounded transition">Upload</button>
+                    </div>
+                </div>
+                <p id="image-status" class="mt-2 text-xs hidden"></p>
+            </div>
+            <!-- Audio Upload -->
+            <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+                <h2 class="text-lg font-semibold mb-1">Audio Upload</h2>
+                <p class="text-xs text-gray-500 mb-4">Upload MP3 files to the HelpDesk SD card for the JukeDesk app.</p>
+                <div id="audio-drop-zone"
+                    class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-emerald-400 transition"
+                    ondragover="event.preventDefault(); this.classList.add('border-emerald-400')"
+                    ondragleave="this.classList.remove('border-emerald-400')"
+                    ondrop="handleDrop(event,'audio')"
+                    onclick="document.getElementById('audio-input').click()">
+                    <p class="text-sm text-gray-400">Drop MP3 here or <span class="text-emerald-400">browse</span></p>
+                    <p class="text-xs text-gray-500 mt-1">MP3 only -- max 50 MB</p>
+                    <input type="file" id="audio-input" class="hidden" accept=".mp3" onchange="handleFileSelect(event,'audio')">
+                </div>
+                <div id="audio-preview" class="mt-4 hidden">
+                    <div class="flex items-center justify-between bg-gray-700 rounded-lg px-3 py-2 text-sm">
+                        <span id="audio-filename" class="text-gray-300 truncate mr-2"></span>
+                        <button onclick="uploadFile('audio')" class="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium px-3 py-1.5 rounded transition">Upload</button>
+                    </div>
+                </div>
+                <p id="audio-status" class="mt-2 text-xs hidden"></p>
+            </div>
+        </div>
+    </div>
 
-        const COLORS = {
-            blue:    "bg-blue-600 hover:bg-blue-500",
-            emerald: "bg-emerald-600 hover:bg-emerald-500",
-            purple:  "bg-purple-600 hover:bg-purple-500",
-            orange:  "bg-orange-600 hover:bg-orange-500",
-        };
+    <!-- SETTINGS TAB -->
+    <div id="tab-settings" class="hidden">
+        <form id="settings-form" onsubmit="saveSettings(event)" class="space-y-5">
+            <!-- Wi-Fi -->
+            <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+                <h2 class="text-lg font-semibold mb-4">Wi-Fi</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Network Name (SSID)</label>
+                        <input name="wifi_ssid" type="text" placeholder="Your WiFi network"
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Password</label>
+                        <div class="relative">
+                            <input name="wifi_password" id="wifi-password" type="password" placeholder="password"
+                                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 transition pr-12">
+                            <button type="button" onclick="togglePwd('wifi-password',this)"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-white px-1 transition">Show</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Weather -->
+            <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+                <h2 class="text-lg font-semibold mb-4">Weather</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm text-gray-400 mb-1">OpenWeatherMap API Key</label>
+                        <input name="owm_api_key" type="text" placeholder="e.g. a1b2c3d4e5f6..."
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 transition font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Zip Code or City</label>
+                        <input name="zip_code" type="text" placeholder="e.g. 10001 or London"
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 transition">
+                    </div>
+                </div>
+                <div class="mt-4 w-44">
+                    <label class="block text-sm text-gray-400 mb-1">Units</label>
+                    <select name="units" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-400 transition">
+                        <option value="metric">Metric (C)</option>
+                        <option value="imperial">Imperial (F)</option>
+                    </select>
+                </div>
+            </div>
+            <!-- Device Connection -->
+            <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+                <h2 class="text-lg font-semibold mb-1">Device Connection</h2>
+                <p class="text-xs text-gray-500 mb-4">Local IP of the HelpDesk. Used for Wi-Fi file transfers.</p>
+                <div class="w-56">
+                    <label class="block text-sm text-gray-400 mb-1">HelpDesk IP Address</label>
+                    <input name="device_ip" type="text" placeholder="e.g. 192.168.1.42"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 transition font-mono">
+                </div>
+            </div>
+            <!-- Save -->
+            <div class="flex items-center gap-4">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-6 rounded-lg transition">Save Settings</button>
+                <span id="settings-status" class="text-sm hidden"></span>
+            </div>
+        </form>
+    </div>
 
-        // ── Build macro button grid ───────────────────────────────────────────
-        function buildMacroGrid() {
-            const grid = document.getElementById("macro-grid");
-            MACROS.forEach(m => {
-                const btn = document.createElement("button");
-                btn.className = `${COLORS[m.color] || "bg-gray-600 hover:bg-gray-500"} text-white font-medium py-2.5 px-4 rounded-lg transition text-sm`;
-                btn.textContent = m.label;
-                btn.onclick = () => triggerMacro(m.id);
-                grid.appendChild(btn);
-            });
+</div>
+<script>
+const TABS = ['status','media','settings'];
+function showTab(name) {
+    TABS.forEach(t => {
+        document.getElementById('tab-'+t).classList.toggle('hidden', t !== name);
+        const btn = document.getElementById('tab-btn-'+t);
+        btn.className = t === name
+            ? 'flex-1 py-2 px-4 rounded-lg text-sm font-medium bg-gray-700 text-white transition'
+            : 'flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition';
+    });
+    if (name === 'settings') loadSettings();
+}
+
+const MACROS = [
+    { id:'mute_mic',  label:'Mute Mic',  color:'blue'    },
+    { id:'skip_song', label:'Skip Song', color:'emerald' },
+    { id:'macro_1',   label:'Macro 1',   color:'purple'  },
+    { id:'macro_2',   label:'Macro 2',   color:'orange'  },
+];
+const COLORS = {
+    blue:   'bg-blue-600 hover:bg-blue-500',
+    emerald:'bg-emerald-600 hover:bg-emerald-500',
+    purple: 'bg-purple-600 hover:bg-purple-500',
+    orange: 'bg-orange-600 hover:bg-orange-500',
+};
+function buildMacroGrid() {
+    const grid = document.getElementById('macro-grid');
+    MACROS.forEach(m => {
+        const btn = document.createElement('button');
+        btn.className = (COLORS[m.color]||'bg-gray-600 hover:bg-gray-500')+' text-white font-medium py-2.5 px-4 rounded-lg transition text-sm';
+        btn.textContent = m.label;
+        btn.onclick = () => triggerMacro(m.id);
+        grid.appendChild(btn);
+    });
+}
+async function triggerMacro(macroId) {
+    try { await fetch('/api/macros/'+encodeURIComponent(macroId)+'/trigger', {method:'POST'}); }
+    catch { logEvent('dashboard', macroId, 'Error: request failed'); }
+}
+
+function logEvent(source, id, action) {
+    const log = document.getElementById('activity-log');
+    const empty = document.getElementById('log-empty');
+    if (empty) empty.remove();
+    const time   = new Date().toLocaleTimeString();
+    const label  = source==='device' ? 'HelpDesk' : 'Dashboard';
+    const border = source==='device' ? 'border-orange-400' : 'border-blue-400';
+    const color  = source==='device' ? 'text-orange-300'   : 'text-blue-300';
+    const entry = document.createElement('div');
+    entry.className = 'border-l-2 pl-2 py-0.5 '+border;
+    entry.innerHTML = '<span class="text-gray-500 text-xs">'+time+'</span> <span class="'+color+'">'+label+'</span> -> <span class="text-white">'+id+'</span> <span class="text-gray-400 text-xs">-- '+action+'</span>';
+    log.prepend(entry);
+    while (log.children.length > 50) log.removeChild(log.lastChild);
+}
+function clearLog() {
+    document.getElementById('activity-log').innerHTML = '<p id="log-empty" class="text-gray-500 text-xs italic">No events yet.</p>';
+}
+
+const _files = {};
+function handleDrop(e, type) {
+    e.preventDefault();
+    document.getElementById(type+'-drop-zone').classList.remove(type==='image'?'border-blue-400':'border-emerald-400');
+    const file = e.dataTransfer.files[0];
+    if (file) _setFile(type, file);
+}
+function handleFileSelect(e, type) { const f=e.target.files[0]; if(f) _setFile(type,f); }
+function _setFile(type, file) {
+    _files[type] = file;
+    document.getElementById(type+'-filename').textContent = file.name;
+    document.getElementById(type+'-preview').classList.remove('hidden');
+    document.getElementById(type+'-status').classList.add('hidden');
+}
+async function uploadFile(type) {
+    const file = _files[type]; if (!file) return;
+    const endpoint = type==='image' ? '/api/media/image' : '/api/media/audio';
+    const statusEl = document.getElementById(type+'-status');
+    statusEl.textContent='Uploading...'; statusEl.className='mt-2 text-xs text-gray-400'; statusEl.classList.remove('hidden');
+    const body = new FormData(); body.append('file', file);
+    try {
+        const res  = await fetch(endpoint, {method:'POST', body});
+        const data = await res.json();
+        if (res.ok) {
+            const dest = data.sent_to_device ? 'Saved and sent to device' : 'Saved locally (device not connected)';
+            statusEl.textContent = 'OK: '+data.filename+' -- '+dest;
+            statusEl.className   = 'mt-2 text-xs text-emerald-400';
+        } else {
+            statusEl.textContent = 'Error: '+(data.detail||'Upload failed');
+            statusEl.className   = 'mt-2 text-xs text-red-400';
         }
+    } catch { statusEl.textContent='Network error'; statusEl.className='mt-2 text-xs text-red-400'; }
+}
 
-        // ── Activity log ──────────────────────────────────────────────────────
-        function logEvent(source, macroId, action) {
-            const log = document.getElementById("activity-log");
-            const empty = document.getElementById("log-empty");
-            if (empty) empty.remove();
+async function loadSettings() {
+    try {
+        const data = await (await fetch('/api/settings')).json();
+        const form = document.getElementById('settings-form');
+        for (const [k, v] of Object.entries(data)) { const el=form.elements[k]; if(el) el.value=v; }
+    } catch (err) { console.error('Failed to load settings:', err); }
+}
+async function saveSettings(e) {
+    e.preventDefault();
+    const form=document.getElementById('settings-form'), statusEl=document.getElementById('settings-status'), payload={};
+    for (const el of form.elements) { if(el.name) payload[el.name]=el.value; }
+    try {
+        const res = await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+        statusEl.textContent = res.ok ? 'Settings saved' : 'Save failed';
+        statusEl.className   = 'text-sm '+(res.ok?'text-emerald-400':'text-red-400');
+        statusEl.classList.remove('hidden');
+        setTimeout(()=>statusEl.classList.add('hidden'), 3000);
+    } catch { console.error('Settings save failed'); }
+}
+function togglePwd(inputId, btn) {
+    const input=document.getElementById(inputId), hidden=input.type==='password';
+    input.type=hidden?'text':'password'; btn.textContent=hidden?'Hide':'Show';
+}
 
-            const time        = new Date().toLocaleTimeString();
-            const sourceLabel = source === "device" ? "🖥️ HelpDesk" : "🖱️ Dashboard";
-            const borderColor = source === "device" ? "border-orange-400" : "border-blue-400";
-            const textColor   = source === "device" ? "text-orange-300"   : "text-blue-300";
+let ws;
+function connectWs() {
+    ws = new WebSocket('ws://'+window.location.host+'/ws');
+    ws.onopen    = ()=>setIndicator('ws',true,'Dashboard');
+    ws.onmessage = ({data})=>{
+        const msg=JSON.parse(data);
+        if(msg.type==='telemetry')    { document.getElementById('cpu-val').innerText=msg.cpu+'%'; document.getElementById('cpu-bar').style.width=msg.cpu+'%'; document.getElementById('ram-val').innerText=msg.ram+'%'; document.getElementById('ram-bar').style.width=msg.ram+'%'; }
+        if(msg.type==='macro_event')  logEvent(msg.source, msg.macro_id, msg.action);
+        if(msg.type==='serial_status') setIndicator('serial',msg.connected,'HelpDesk');
+    };
+    ws.onclose = ()=>{ setIndicator('ws',false,'Dashboard'); setIndicator('serial',false,'HelpDesk'); setTimeout(connectWs,2000); };
+}
+function setIndicator(id, connected, label) {
+    document.getElementById(id+'-dot').className = connected ? 'w-2.5 h-2.5 rounded-full bg-emerald-500' : 'w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse';
+    document.getElementById(id+'-text').innerText = connected ? label+': Connected' : label+': Disconnected';
+}
 
-            const entry = document.createElement("div");
-            entry.className = `border-l-2 pl-2 py-0.5 ${borderColor}`;
-            entry.innerHTML =
-                `<span class="text-gray-500 text-xs">${time}</span> ` +
-                `<span class="${textColor}">${sourceLabel}</span> → ` +
-                `<span class="text-white">${macroId}</span> ` +
-                `<span class="text-gray-400 text-xs">— ${action}</span>`;
-
-            log.prepend(entry);
-            // Trim to 50 entries to avoid unbounded growth
-            while (log.children.length > 50) log.removeChild(log.lastChild);
-        }
-
-        function clearLog() {
-            document.getElementById("activity-log").innerHTML =
-                '<p id="log-empty" class="text-gray-500 text-xs italic">No events yet.</p>';
-        }
-
-        // ── REST macro trigger ────────────────────────────────────────────────
-        async function triggerMacro(macroId) {
-            try {
-                await fetch(`/api/macros/${encodeURIComponent(macroId)}/trigger`, { method: "POST" });
-                // Server broadcasts a macro_event over WS — the log updates there.
-            } catch (err) {
-                console.error("Macro trigger failed:", err);
-                logEvent("dashboard", macroId, "Error: request failed");
-            }
-        }
-
-        // ── WebSocket ─────────────────────────────────────────────────────────
-        let ws;
-
-        function connectWs() {
-            ws = new WebSocket(`ws://${window.location.host}/ws`);
-
-            ws.onopen = () => setIndicator("ws", true, "Dashboard");
-
-            ws.onmessage = ({ data }) => {
-                const msg = JSON.parse(data);
-                if (msg.type === "telemetry")     updateTelemetry(msg);
-                if (msg.type === "macro_event")   logEvent(msg.source, msg.macro_id, msg.action);
-                if (msg.type === "serial_status") setIndicator("serial", msg.connected, "HelpDesk");
-            };
-
-            ws.onclose = () => {
-                setIndicator("ws",     false, "Dashboard");
-                setIndicator("serial", false, "HelpDesk");
-                setTimeout(connectWs, 2000);
-            };
-        }
-
-        // ── UI helpers ────────────────────────────────────────────────────────
-        function updateTelemetry({ cpu, ram }) {
-            setBar("cpu", cpu);
-            setBar("ram", ram);
-        }
-
-        function setBar(metric, value) {
-            document.getElementById(`${metric}-val`).innerText = `${value}%`;
-            document.getElementById(`${metric}-bar`).style.width = `${value}%`;
-        }
-
-        function setIndicator(id, connected, label) {
-            const dot = document.getElementById(`${id}-dot`);
-            const txt = document.getElementById(`${id}-text`);
-            if (connected) {
-                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]";
-                txt.innerText = `${label}: Connected`;
-            } else {
-                dot.className = "w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse";
-                txt.innerText = `${label}: Disconnected`;
-            }
-        }
-
-        // ── Init ──────────────────────────────────────────────────────────────
-        buildMacroGrid();
-        connectWs();
-    </script>
+buildMacroGrid();
+connectWs();
+</script>
 </body>
 </html>
