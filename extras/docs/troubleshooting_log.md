@@ -48,23 +48,33 @@ Also lowered SPI from 80 MHz to 40 MHz (matching working example).
 
 ---
 
-## Issue #4: Slow / Unreliable Touch (IN PROGRESS — Fix Applied)
+## Issue #4: Touch Coordinates Misaligned (RESOLVED)
 
 **Date:** 2026-04-07  
-**Symptom:** Touch input works intermittently, is slow, sometimes doesn't register.  
+**Symptom:** Touch input detected but coordinates wrong. Touching upper-left quadrant
+activates buttons in the middle of the screen. Touch only works in specific areas.  
+
+**Root Cause:** Touch coordinate ranges were set in landscape orientation (x=0-479, y=0-319)
+but GT911 hardware sensor is physically mounted in **portrait** orientation. The x_max and
+y_max values must match the sensor's physical layout (319×479), NOT the display orientation.
+The `offset_rotation` parameter then transforms coordinates to match the display.
+
 **Diagnosis:**
-1. GT911 I2C address was set to 0x5D; Desktop_Assistant_35 example uses 0x14
-2. INT pin was disabled (-1) → polling only, no interrupt notification
-3. GT911 has two possible I2C addresses depending on INT pin state at reset
+1. Current config had x_max=479, y_max=319 (landscape)
+2. Example uses x_max=319, y_max=479 (portrait) with panel rotation 3
+3. Our panel uses rotation 1 (180° different from example)
+4. Touch offset_rotation was 0, needs to be adjusted for panel rotation delta
 
-**Fix:** Changed I2C address to 0x14, enabled INT pin (GPIO 47).
-Added I2C bus scan at boot to discover the actual device address.
+**Fix:**  
+1. Swapped touch coordinates: `x_max = 319`, `y_max = 479` (portrait, matches hardware)
+2. Set `offset_rotation = 2` (accounts for 180° difference: panel rot 1 vs example's rot 3)
 
-**Verification steps:**
-1. Check serial output for `[I2C] Scanning...` messages at boot
-2. Note which address(es) appear (0x14 or 0x5D)
-3. If the GT911 shows at 0x5D instead of 0x14, change `cfg.i2c_addr` back
-4. Touch events now log to serial: `[Touch] x=... y=...`
+**Key Lesson:** GT911 touch sensor coordinates are **hardware-based** (portrait),
+not display-based. Always set x_max/y_max to match the sensor's physical orientation,
+then use offset_rotation to align with the display's rotation setting.
+
+**Verification:** Touch all areas of screen (corners, edges, center). Coordinates
+should match visual position. Check serial output: `[Touch] x=... y=...`
 
 ---
 

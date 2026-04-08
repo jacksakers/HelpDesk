@@ -111,14 +111,28 @@ cfg.dma_channel = SPI_DMA_CH_AUTO
 ### Touch: `Touch_GT911`
 
 ```
+cfg.x_min           = 0
+cfg.x_max           = 319    // CRITICAL: GT911 hardware is portrait-oriented
+cfg.y_min           = 0
+cfg.y_max           = 479    // x/y match physical sensor, NOT display orientation
 cfg.i2c_addr        = 0x14   // alternate GT911 addr (Desktop_Assistant_35 example)
 cfg.i2c_port        = 0
 cfg.pin_sda         = 15
 cfg.pin_scl         = 16
 cfg.pin_int         = 47     // enables interrupt-driven reads
 cfg.freq            = 400000
-cfg.offset_rotation = 0      // may need tuning (0–7)
+cfg.offset_rotation = 2      // transforms touch coords to match panel rotation 1
 ```
+
+**CRITICAL:** The GT911 touch sensor is physically mounted in **portrait**
+orientation (320×480). Always set `x_max` and `y_max` to match the sensor's
+physical layout (319 and 479), even when the display is in landscape mode.
+The `offset_rotation` parameter transforms coordinates to align with the
+display's rotation setting.
+
+For panel `offset_rotation = 1` (landscape, USB right), touch `offset_rotation = 2`
+provides correct alignment. The Desktop_Assistant_35 example uses panel rotation 3
+with touch rotation 0 — difference of 180° (2 rotation steps).
 
 The factory code for the non-Advance model uses `Touch_FT5x06` at
 address 0x38. That is wrong for the Advance board — the Advance uses a GT911.
@@ -216,7 +230,48 @@ LV_DEF_REFR_PERIOD      33  (~30 fps)
 
 ---
 
-## 6. Boot Sequence
+## 6. Touch Coordinate Mapping (KEY LESSON)
+
+**Problem:** Touch input detected but coordinates misaligned. Touching upper-left
+triggers buttons in the center. Touch only works in specific screen regions.
+
+**Root Cause:** The GT911 capacitive touch controller is physically mounted in
+**portrait** orientation on the board, regardless of how the display is rotated.
+
+**Rule:** Touch sensor `x_max` and `y_max` must **always** match the sensor's
+physical hardware orientation, not the display's logical orientation.
+
+```cpp
+// ✓ CORRECT — for GT911 in portrait mount (320×480 hardware)
+cfg.x_min = 0;
+cfg.x_max = 319;    // Sensor physical width  (not display width!)
+cfg.y_min = 0;
+cfg.y_max = 479;    // Sensor physical height (not display height!)
+cfg.offset_rotation = 2;  // Transform to align with panel rotation 1
+```
+
+```cpp
+// ✗ WRONG — setting x/y to match landscape display (480×320)
+cfg.x_max = 479;    // Display width  (mismatched with hardware)
+cfg.y_max = 319;    // Display height (mismatched with hardware)
+cfg.offset_rotation = 0;  // Coordinates now misaligned
+```
+
+**How offset_rotation works:**  
+After reading raw coordinates from the sensor (0–319, 0–479), LovyanGFX
+applies a rotation transform using `offset_rotation` to align with the
+panel's `offset_rotation` setting. For our config:
+- Panel rotation: 1 (landscape, USB right)
+- Touch rotation: 2 (180° from example's 0)
+- Desktop_Assistant_35 example: panel 3, touch 0 (also 180° apart)
+
+Always configure touch x/y to match **sensor hardware**, then adjust
+`offset_rotation` to compensate for how the display is rotated relative
+to the working example.
+
+---
+
+## 7. Boot Sequence
 
 1. `Serial.begin(115200)` + 500 ms delay for monitor to attach
 2. Blink backlight (GPIO 38) 3× as a visual "firmware is running" test
@@ -230,7 +285,7 @@ LV_DEF_REFR_PERIOD      33  (~30 fps)
 
 ---
 
-## 7. PlatformIO Build Notes
+## 8. PlatformIO Build Notes
 
 ```ini
 board              = esp32-s3-devkitc-1

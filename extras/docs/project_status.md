@@ -99,8 +99,9 @@ HelpDesk/
 
 | Module      | Init function      | Loop function           | Status      |
 |-------------|--------------------|-------------------------|-------------|
-| Display     | initDisplay()      | (in flush callback)     | Working*    |
-| WiFi        | connectToWiFi()    | —                       | Working     |
+| Display     | initDisplay()      | (in flush callback)     | ✓ Working   |
+| Touch Input | (in LovyanGFX)     | (in touch_read cb)      | ✓ Working   |
+| WiFi        | connectToWiFi()    | —                       | ✓ Working   |
 | NTP Time    | initNTP()          | handleTimeUpdate()      | Not wired   |
 | Weather     | getWeatherData()   | handleWeatherUpdate()   | Not wired   |
 | Music       | audioInit()        | audioLoop()             | Not wired   |
@@ -109,43 +110,56 @@ HelpDesk/
 | PC Monitor  | pcMonitorInit()    | handlePcMonitor()       | Not started |
 | PomoFocus   | initPomoTimer()    | handlePomoTimer()       | Not started |
 
-*Display works for LovyanGFX direct drawing; LVGL rendering fix pending test.
+---
+
+## Recent Fixes (2026-04-07)
+
+### ✓ RESOLVED: Garbled LVGL Display
+
+**Issue:** LVGL UI showed colorful streaks/stripes. Direct LovyanGFX drawing worked.  
+**Cause:** ILI9488 over SPI defaults to 18-bit color (3 bytes/pixel). Calling
+`setColorDepth(16)` confused the pipeline — panel stayed at 18-bit but flush
+sent 2 bytes/pixel, causing byte-alignment drift.  
+**Fix:** Removed `setColorDepth(16)`. Leave panel at 18-bit default. LovyanGFX
+`pushImage` with `rgb565_t*` auto-converts 16→18 bit correctly.
+
+### ✓ RESOLVED: Touch Coordinates Misaligned
+
+**Issue:** Touch detected but coordinates wrong. Upper-left touch triggered center buttons.  
+**Cause:** Touch x_max/y_max were set to display dimensions (480×320 landscape),
+but GT911 sensor hardware is physically portrait (320×480). LovyanGFX transforms
+coordinates from sensor space to display space using `offset_rotation`.  
+**Fix:** Set touch x_max=319, y_max=479 (portrait, matches sensor hardware),
+then adjusted `offset_rotation = 2` to align with panel rotation 1.
 
 ---
 
-## Current Issues (2026-04-07)
+## Current Issues
 
-### 1. Garbled LVGL Display (Critical)
+None. Next step: wire up feature modules (NTP, weather, music, etc.).
 
-**Symptom:** Startup test bars (R/G/B) display correctly. Once LVGL
-takes over, the screen shows garbled coloured streaks.
+---
 
-**Root cause (identified):** `gfx.setColorDepth(16)` tells LovyanGFX
-to send 2 bytes/pixel, but the ILI9488 panel ignores the COLMOD command
-and stays in 18-bit SPI mode (3 bytes/pixel). Byte alignment drifts → garbled.
+## Previous Issues (Resolved — see troubleshooting_log.md)
 
-**Fix applied:** Removed `setColorDepth(16)`. LovyanGFX now stays at
-18-bit default and auto-converts RGB565→RGB666 inside `pushImage`.
+### 1. Black Screen
 
-**Status:** Awaiting hardware test.
+Panel driver was wrong (ST7789), flash mode was wrong (QIO).  
+Fixed by using Panel_ILI9488 and DIO flash mode.
 
-### 2. Slow / Unreliable Touch
+### 2. Boot Loop / Crash  
 
-**Symptom:** Touch sometimes registers but is sluggish and inaccurate.
+Flash mode QIO caused ROM boot errors. Fixed by switching to DIO.
 
-**Root cause (identified):** Touch I2C address was 0x5D; the
-Desktop_Assistant_35 working example uses 0x14. Also, INT pin was
-disabled (-1) which forces polling.
+### 3. Garbled LVGL Display
 
-**Fix applied:** Changed I2C address to 0x14, enabled INT pin (GPIO 47).
-Added I2C scan at boot to log the actual device address.
+ILI9488 stayed at 18-bit SPI despite setColorDepth(16) call.  
+Fixed by removing setColorDepth and letting LovyanGFX auto-convert.
 
-**Status:** Awaiting hardware test.
+### 4. Touch Coordinates Misaligned
 
-### 3. SPI Speed
-
-Lowered from 80 MHz to 40 MHz to match the working example.
-Can raise back if display is stable.
+Touch x/y were set to display orientation (landscape) instead of sensor hardware (portrait).  
+Fixed by setting x_max=319, y_max=479, offset_rotation=2.
 
 ---
 
