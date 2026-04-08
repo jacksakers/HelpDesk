@@ -28,7 +28,7 @@ extern "C" {
 /* ── All screen headers ────────────────────────────────────── */
 #include "ui_Screen1.h"   /* Launcher         */
 #include "ui_Screen2.h"   /* DeskDash         */
-#include "ui_Screen3.h"   /* PomoFocus        */
+#include "ui_Screen3.h"   /* Tomatimer        */
 #include "ui_Screen4.h"   /* JukeDesk         */
 #include "ui_Screen5.h"   /* TaskMaster       */
 #include "ui_Screen6.h"   /* ZenFrame         */

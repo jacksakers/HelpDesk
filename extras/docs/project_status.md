@@ -96,8 +96,8 @@ HelpDesk/
 | Screen | Name     | Purpose                    | Status       |
 |--------|----------|----------------------------|--------------|
 | 1      | Launcher | Home/app drawer            | Implemented  |
-| 2      | unknown  | TBD                        | Placeholder  |
-| 3      | PomoFocus| Pomodoro timer             | Placeholder  |
+| 2      | DeskDash | Clock + weather display    | Implemented  |
+| 3      | Tomatimer| Pomodoro timer             | Implemented  |
 | 4      | unknown  | TBD                        | Placeholder  |
 | 5      | unknown  | TBD                        | Placeholder  |
 | 6      | unknown  | TBD                        | Placeholder  |
@@ -114,13 +114,13 @@ HelpDesk/
 | Touch Input | (in LovyanGFX)     | (in touch_read cb)      | ✓ Working   |
 | WiFi        | connectToWiFi()    | —                       | ✓ Working   |
 | Buzzer      | buzzerInit()       | buzzerLoop()            | ✓ Working   |
-| NTP Time    | initNTP()          | handleTimeUpdate()      | Not wired   |
-| Weather     | getWeatherData()   | handleWeatherUpdate()   | Not wired   |
+| NTP Time    | initNTP()          | handleTimeUpdate()      | ✓ Wired      |
+| Weather     | getWeatherData()   | handleWeatherUpdate()   | ✓ Wired (needs API key) |
 | Music       | audioInit()        | audioLoop()             | Not wired   |
 | Alarm       | initAlarmClock()   | handleAlarmClock()      | Not wired   |
 | Timer       | initTimer()        | handleTimer()           | Not wired   |
 | PC Monitor  | pcMonitorInit()    | handlePcMonitor()       | Not started |
-| PomoFocus   | initPomoTimer()    | handlePomoTimer()       | Not started |
+| Tomatimer   | initPomoTimer()    | handlePomoTimer()       | ✓ Wired      |
 
 ---
 
@@ -152,7 +152,8 @@ portrait GT911 sensor needs no rotation offset.
 
 ## Current Issues
 
-None. Next step: wire up feature modules (NTP, weather, music, etc.).
+**DeskDash weather:** requires OpenWeatherMap API key. Set `HELPDESK_OWM_KEY` and `HELPDESK_OWM_CITY` in `include/weather.h` (or via `build_flags` in `platformio.ini`).  
+**DeskDash timezone:** defaults to US Eastern (`EST5EDT,M3.2.0,M11.1.0`). Change `HELPDESK_TZ` in `include/get_time.h` to match your zone.
 
 ---
 

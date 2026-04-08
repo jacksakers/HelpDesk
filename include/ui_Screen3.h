@@ -1,6 +1,6 @@
 // Project  : HelpDesk
 // File     : ui_Screen3.h
-// Purpose  : PomoFocus screen — public interface
+// Purpose  : Tomatimer screen — public interface
 // Depends  : ui.h (LVGL 8.3.11)
 
 #ifndef UI_SCREEN3_H
@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-/* SCREEN: ui_Screen3 — PomoFocus (Pomodoro productivity timer) */
+/* SCREEN: ui_Screen3 — Tomatimer (Pomodoro productivity timer) */
 void ui_Screen3_screen_init(void);
 void ui_Screen3_screen_destroy(void);
 extern lv_obj_t * ui_Screen3;

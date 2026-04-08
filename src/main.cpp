@@ -1,7 +1,7 @@
 // Project  : HelpDesk
 // File     : HelpDesk.ino
 // Purpose  : Main Arduino sketch — initialise hardware and run the event loop
-// Depends  : display_Screen.h, wifi_connect.h, get_time.h, weather.h, ui.h
+// Depends  : display_Screen.h, wifi_connect.h, get_time.h, weather.h, pomo_timer.h, ui.h
 
 #include <Arduino.h>
 #include <lvgl.h>
@@ -10,13 +10,9 @@
 #include "display_Screen.h"
 #include "wifi_connect.h"
 #include "buzzer.h"
-
-// ─── Forward declarations for feature modules (add headers as you build them) ─
-// #include "get_time.h"
-// #include "weather.h"
-// #include "pomo_timer.h"
-// #include "juke_desk.h"
-// #include "pc_monitor.h"
+#include "get_time.h"
+#include "weather.h"
+#include "pomo_timer.h"
 
 // ─── Update intervals ──────────────────────────────────────────────────────────
 #define NTP_SYNC_INTERVAL_MS     600000UL   // 10 minutes
@@ -64,13 +60,9 @@ void setup()
     connectToWiFi();
     Serial.println("[HelpDesk] WiFi connected.");
 
-    // 4. Feature module init — uncomment each as the module is implemented
-    // initNTP();
-    // getTimeData();
-    // getWeatherData();
-    // audioInit();
-    // initPomoTimer();
-    // pcMonitorInit();
+    // 4. Feature module init
+    initNTP();
+    initPomoTimer();
 
     Serial.println("[HelpDesk] Init complete. Entering loop.");
 }
@@ -95,13 +87,12 @@ void loop()
         last_tick_log = now;
     }
 
-    // Periodic feature updates — uncomment each as the module is implemented
-    // handleTimeUpdate(now);
-    // handleNTPUpdate(now);
-    // handleWeatherUpdate(now);
-    // audioLoop();
-    // handlePomoTimer(now);
+    // Periodic feature updates
+    handleTimeUpdate(now);
+    handleWeatherUpdate(now);
+    handlePomoTimer(now);
     // handlePcMonitor(now);
+    // audioLoop();
 
     // 5 ms yield keeps the LVGL timer accurate without blocking touch input
     delay(5);

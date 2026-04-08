@@ -32,7 +32,7 @@ typedef struct {
 
 static const app_tile_t k_apps[] = {
     { LV_SYMBOL_HOME    "\nDeskDash",   0x2196F3, &ui_Screen2, ui_Screen2_screen_init },
-    { LV_SYMBOL_PAUSE   "\nPomoFocus",  0xF44336, &ui_Screen3, ui_Screen3_screen_init },
+    { LV_SYMBOL_PAUSE   "\nTomatimer",  0xF44336, &ui_Screen3, ui_Screen3_screen_init },
     { LV_SYMBOL_AUDIO   "\nJukeDesk",   0x9C27B0, &ui_Screen4, ui_Screen4_screen_init },
     { LV_SYMBOL_LIST    "\nTaskMaster", 0x4CAF50, &ui_Screen5, ui_Screen5_screen_init },
     { LV_SYMBOL_IMAGE   "\nZenFrame",   0x009688, &ui_Screen6, ui_Screen6_screen_init },

@@ -12,7 +12,7 @@ Every `.c/.cpp` source file has one job.  Name the file after that job.
 | File | Responsibility |
 |------|---------------|
 | `ui_Screen1.c` | Build and destroy the Launcher screen |
-| `ui_Screen3.c` | Build and destroy the PomoFocus screen |
+| `ui_Screen3.c` | Build and destroy the Tomatimer screen |
 | `weather.cpp` | Fetch and parse weather data from the API |
 | `get_Time.cpp` | NTP synchronisation and time formatting |
 | `timer.cpp` | Stopwatch state machine only |
@@ -176,7 +176,7 @@ Every source file begins with a four-line header comment:
 ```c
 // Project  : HelpDesk
 // File     : ui_Screen3.c
-// Purpose  : PomoFocus screen — Pomodoro timer placeholder layout
+// Purpose  : Tomatimer screen — Pomodoro timer placeholder layout
 // Depends  : ui.h (LVGL 8.3.11)
 ```
 

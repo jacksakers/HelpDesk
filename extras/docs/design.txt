@@ -34,7 +34,7 @@ Current weather and temperature (fetched via free OpenWeatherMap API).
 
 A fun, animated companion character (like a pixel-art pet) that idles on the screen.
 
-B. PomoFocus (Productivity Timer)
+B. Tomatimer (Productivity Timer)
 
 A beautifully designed Pomodoro timer.
 

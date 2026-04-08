@@ -20,6 +20,7 @@ Every code change should update **only the relevant documentation**, keeping eac
 - Identify which subsystem you're modifying (display, touch, WiFi, UI, etc.)
 - Read the relevant context doc(s) from `extras/docs/`
 - Check `extras/examples/Desktop_Assistant_35/` for working reference code
+- READ the coding_guidelines.md and follow the rules
 
 **Don't:** Guess at implementation details. The example code is the ground truth.
 

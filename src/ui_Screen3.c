@@ -1,9 +1,10 @@
 // Project  : HelpDesk
 // File     : ui_Screen3.c
-// Purpose  : PomoFocus screen — Pomodoro timer placeholder layout
+// Purpose  : Tomatimer screen — Pomodoro timer placeholder layout
 // Depends  : ui.h (LVGL 9.x)
 
 #include "ui.h"
+#include "pomo_timer.h"
 
 /* ── Colours ───────────────────────────────────────────────── */
 #define CLR_BG          0x1A1A2E
@@ -42,9 +43,16 @@ lv_obj_t * ui_PomoPhaseLabel = NULL;
 /* ── Event callbacks ───────────────────────────────────────── */
 static void back_to_launcher_ev(lv_event_t * e)
 {
+    pomoStop();   /* pause timer when leaving the screen */
     _ui_screen_change(&ui_Screen1, LV_SCREEN_LOAD_ANIM_MOVE_RIGHT, 300, 0,
                       ui_Screen1_screen_init);
 }
+
+static void pomo_start_ev(lv_event_t * e) { (void)e; pomoStart();        }
+static void pomo_stop_ev (lv_event_t * e) { (void)e; pomoStop();         }
+static void pomo_reset_ev(lv_event_t * e) { (void)e; pomoReset();        }
+static void pomo_work_ev (lv_event_t * e) { (void)e; pomoSetWorkMode();  }
+static void pomo_break_ev(lv_event_t * e) { (void)e; pomoSetBreakMode(); }
 
 /* ── Private helpers ───────────────────────────────────────── */
 static void build_header(lv_obj_t * scr)
@@ -76,7 +84,7 @@ static void build_header(lv_obj_t * scr)
     lv_obj_center(ico);
 
     lv_obj_t * title = lv_label_create(hdr);
-    lv_label_set_text(title, "PomoFocus");
+    lv_label_set_text(title, "Tomatimer");
     lv_obj_set_style_text_color(title, lv_color_white(), 0);
     lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
 }
@@ -141,14 +149,19 @@ static void build_controls(lv_obj_t * scr)
 {
     /* Mode toggle — Work / Break */
     int mode_x0 = (SCREEN_W - (2 * MODE_BTN_W + 10)) / 2;
-    make_btn(scr, "WORK",  CLR_WORK_MODE,  mode_x0,                    MODE_BTN_Y, MODE_BTN_W, MODE_BTN_H);
-    make_btn(scr, "BREAK", CLR_BREAK_MODE, mode_x0 + MODE_BTN_W + 10, MODE_BTN_Y, MODE_BTN_W, MODE_BTN_H);
+    lv_obj_t * work_btn  = make_btn(scr, "WORK",  CLR_WORK_MODE,  mode_x0,                    MODE_BTN_Y, MODE_BTN_W, MODE_BTN_H);
+    lv_obj_t * break_btn = make_btn(scr, "BREAK", CLR_BREAK_MODE, mode_x0 + MODE_BTN_W + 10, MODE_BTN_Y, MODE_BTN_W, MODE_BTN_H);
+    lv_obj_add_event_cb(work_btn,  pomo_work_ev,  LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(break_btn, pomo_break_ev, LV_EVENT_CLICKED, NULL);
 
     /* Action row — Start / Stop / Reset */
     int act_x0 = (SCREEN_W - (3 * ACT_BTN_W + 2 * 10)) / 2;
-    make_btn(scr, LV_SYMBOL_PLAY  " Start", CLR_BTN_START, act_x0,                       ACT_BTN_Y, ACT_BTN_W, ACT_BTN_H);
-    make_btn(scr, LV_SYMBOL_PAUSE " Stop",  CLR_BTN_STOP,  act_x0 +     ACT_BTN_W + 10, ACT_BTN_Y, ACT_BTN_W, ACT_BTN_H);
-    make_btn(scr, LV_SYMBOL_STOP  " Reset", CLR_BTN_RESET, act_x0 + 2 * ACT_BTN_W + 20, ACT_BTN_Y, ACT_BTN_W, ACT_BTN_H);
+    lv_obj_t * start_btn = make_btn(scr, LV_SYMBOL_PLAY  " Start", CLR_BTN_START, act_x0,                       ACT_BTN_Y, ACT_BTN_W, ACT_BTN_H);
+    lv_obj_t * stop_btn  = make_btn(scr, LV_SYMBOL_PAUSE " Stop",  CLR_BTN_STOP,  act_x0 +     ACT_BTN_W + 10, ACT_BTN_Y, ACT_BTN_W, ACT_BTN_H);
+    lv_obj_t * reset_btn = make_btn(scr, LV_SYMBOL_STOP  " Reset", CLR_BTN_RESET, act_x0 + 2 * ACT_BTN_W + 20, ACT_BTN_Y, ACT_BTN_W, ACT_BTN_H);
+    lv_obj_add_event_cb(start_btn, pomo_start_ev, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(stop_btn,  pomo_stop_ev,  LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(reset_btn, pomo_reset_ev, LV_EVENT_CLICKED, NULL);
 }
 
 /* ── Public lifecycle ──────────────────────────────────────── */
