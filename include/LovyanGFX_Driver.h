@@ -8,11 +8,12 @@
 //   SPI MOSI  : 39      I2C SDA   : 15  (touch)
 //   SPI CS    : 40      I2C SCL   : 16  (touch)
 //   SPI D/C   : 41      Touch INT : 47
-//   Touch I2C address : 0x5D (GT911)
+//   Touch I2C address : 0x14 (GT911, alternate addr)
 //
-//   NOTE: Panel_ILI9488 defaults to 18-bit (3 bytes/pixel) SPI color.
-//   Call gfx.setColorDepth(16) after gfx.init() to switch to 16-bit RGB565,
-//   which matches what LVGL sends and what this board's panel expects.
+//   NOTE: ILI9488 over SPI defaults to 18-bit color (3 bytes/pixel).
+//   Do NOT call gfx.setColorDepth(16) — the panel likely ignores COLMOD 0x55
+//   and stays in 18-bit mode.  LovyanGFX handles the RGB565→RGB666 conversion
+//   automatically inside pushImage when the source type is rgb565_t.
 
 #define LGFX_USE_V1
 #include <LovyanGFX.hpp>
@@ -32,7 +33,7 @@ public:
             auto cfg = _bus_instance.config();
             cfg.spi_host    = SPI2_HOST;
             cfg.spi_mode    = 0;
-            cfg.freq_write  = 80000000;
+            cfg.freq_write  = 40000000;   // 40 MHz — matches working example; 80 caused garbled LVGL
             cfg.freq_read   = 16000000;
             cfg.spi_3wire   = false;
             cfg.use_lock    = true;
@@ -75,11 +76,11 @@ public:
             cfg.x_max          = 479;
             cfg.y_min          = 0;
             cfg.y_max          = 319;
-            cfg.pin_int        = -1;
+            cfg.pin_int        = 47;     // INT pin — enables interrupt-driven touch reads
             cfg.bus_shared     = false;
             cfg.offset_rotation = 0;
             cfg.i2c_port       = 0;
-            cfg.i2c_addr       = 0x5D;    // GT911 default address
+            cfg.i2c_addr       = 0x14;    // GT911 alternate address (matches Desktop_Assistant_35 example)
             cfg.pin_sda        = 15;
             cfg.pin_scl        = 16;
             cfg.freq           = 400000;

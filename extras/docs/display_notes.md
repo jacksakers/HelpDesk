@@ -103,7 +103,7 @@ cfg.offset_rotation  = 1    // landscape, USB connector on the right
 
 ```
 cfg.spi_host    = SPI2_HOST
-cfg.freq_write  = 80000000  // 80 MHz write clock
+cfg.freq_write  = 40000000  // 40 MHz — matches working example (80 MHz may work too)
 cfg.freq_read   = 16000000
 cfg.dma_channel = SPI_DMA_CH_AUTO
 ```
@@ -111,12 +111,13 @@ cfg.dma_channel = SPI_DMA_CH_AUTO
 ### Touch: `Touch_GT911`
 
 ```
-cfg.i2c_addr        = 0x5D
+cfg.i2c_addr        = 0x14   // alternate GT911 addr (Desktop_Assistant_35 example)
 cfg.i2c_port        = 0
 cfg.pin_sda         = 15
 cfg.pin_scl         = 16
+cfg.pin_int         = 47     // enables interrupt-driven reads
 cfg.freq            = 400000
-cfg.offset_rotation = 0    // may need tuning (0–7)
+cfg.offset_rotation = 0      // may need tuning (0–7)
 ```
 
 The factory code for the non-Advance model uses `Touch_FT5x06` at
@@ -137,19 +138,33 @@ correct because LovyanGFX handles the conversion internally. But LVGL
 content is garbled/streaked because the flush callback pushes raw
 RGB565 bytes.
 
-**Fix:** Call `gfx.setColorDepth(16)` immediately after `gfx.init()`.
-This sends the COLMOD command (0x3A with parameter 0x55) to the panel,
-switching it to 16-bit pixel format so that the SPI transfer matches
-LVGL's RGB565 buffer.
+**Root cause (confirmed 2026-04-07):**  Calling `gfx.setColorDepth(16)`
+sends ILI9488 COLMOD command 0x3A with parameter 0x55 (16-bit pixel format).
+However, **many ILI9488 panels over SPI silently ignore this command** and
+remain in 18-bit mode.  LovyanGFX then believes the panel is 16-bit and
+sends 2 bytes/pixel via `pushImage`, but the panel still expects 3 bytes/pixel.
+Result: every pixel row is shifted by an increasing byte offset → garbled
+coloured streaks.
+
+**Fix:** Do **NOT** call `gfx.setColorDepth(16)`.  Leave the Panel_ILI9488
+at its default 18-bit SPI colour depth.  When `pushImage` receives an
+`lgfx::rgb565_t*` source, LovyanGFX automatically converts each pixel
+from 16-bit RGB565 to 18-bit RGB666 during the SPI transfer.  This is
+~50% more SPI bytes per flush but guarantees correct colour output.
 
 ```cpp
 gfx.init();
-gfx.setColorDepth(16);  // MUST be called before any LVGL rendering
+// gfx.setColorDepth(16);  // ← DO NOT DO THIS on ILI9488 SPI
+gfx.startWrite();
 ```
 
-**Status:** Test bars (drawn by LovyanGFX) now show correct R/G/B.
-LVGL content is still garbled — the flush path likely still has a
-buffer type or cast mismatch. See §5.
+**Performance note:** At 40 MHz SPI with 18-bit colour, expect ~20 fps.
+If higher framerate is needed, try enabling DMA with double buffering, or
+test if your specific ILI9488 board actually supports 16-bit COLMOD.
+
+**Status (2026-04-07):** Fix applied — removed `setColorDepth(16)`, lowered
+SPI to 40 MHz to match working Desktop_Assistant_35 example.  Added I2C
+scan and flush diagnostics to serial output.  Awaiting test on hardware.
 
 ---
 
@@ -180,6 +195,8 @@ gfx.pushImage(x1, y1, w, h, (lgfx::rgb565_t *)px_map);
 - Uses synchronous `pushImage`, **not** `pushImageDMA`.
   With a single buffer, DMA returns before transfer completes and LVGL
   overwrites the buffer → corruption or black screen.
+- LovyanGFX auto-converts RGB565→RGB666 (18-bit) during the SPI transfer
+  because Panel_ILI9488 defaults to 18-bit.  No `setColorDepth(16)` needed.
 
 ### Tick source
 
@@ -235,6 +252,7 @@ Serial to the native USB port instead, which won't show on COM3.
 |---------|--------|-----|
 | `Panel_ST7789` with 480×320 | Black screen | ST7789 memory maxes at 240×320 |
 | `Panel_ILI9488` without `setColorDepth(16)` | Garbled LVGL | 18-bit SPI vs 16-bit LVGL buffer mismatch |
+| `Panel_ILI9488` with `setColorDepth(16)` | Garbled LVGL | Panel ignores COLMOD 0x55; stays 18-bit; LovyanGFX sends 2 bytes into 3-byte bus |
 | `pushImageDMA` with single buffer | Black/corrupt | DMA returns before transfer; LVGL overwrites buffer |
 | `ps_malloc` for draw buffer | NULL / crash | PSRAM must be enabled in build flags |
 | `lv_color_t[]` draw buffer (LVGL 9) | Garbled | `lv_color_t` is 3–4 bytes in LVGL 9, not 2 |
@@ -248,11 +266,18 @@ Serial to the native USB port instead, which won't show on COM3.
 
 ## 9. Open Issues
 
-- **LVGL content is garbled** even after `setColorDepth(16)`. LovyanGFX
-  direct drawing shows correct colors/pixels. Suspect the flush callback
-  still has a buffer format mismatch between what LVGL renders and what
-  `pushImage` receives. Need to verify the byte layout LVGL actually
-  writes versus what `rgb565_t*` expects.
+- **LVGL content garbled — likely fixed (2026-04-07).** Root cause identified
+  as `setColorDepth(16)` on a panel that ignores COLMOD 0x55.  Fix: removed
+  the call, leaving Panel_ILI9488 at 18-bit default.  LovyanGFX auto-converts
+  RGB565→RGB666 inside `pushImage`.  **Needs hardware test.**
+
+- **Touch I2C address updated to 0x14** (was 0x5D).  The Desktop_Assistant_35
+  example uses 0x14.  The GT911 address depends on INT pin state at reset —
+  I2C scan at boot now logs the actual address.  If touch still fails, try
+  the other address.
+
+- **SPI speed lowered to 40 MHz** (was 80 MHz) to match the working example.
+  Can be raised back if display is stable.
 
 - **Touch offset_rotation** may need tuning. Touch registers taps but
   axis alignment with the display hasn't been fully verified (values 0–7).

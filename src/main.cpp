@@ -81,8 +81,9 @@ void loop()
     handler_calls++;
     unsigned long now = millis();
     if(now - last_tick_log >= 5000UL) {
-        Serial.printf("[loop] lv_timer_handler calls: %lu, lv_tick_get: %lu ms\n",
-                      handler_calls, lv_tick_get());
+        Serial.printf("[loop] calls=%lu  lv_tick=%lu ms  heap=%u  psram=%u\n",
+                      handler_calls, lv_tick_get(),
+                      ESP.getFreeHeap(), ESP.getFreePsram());
         last_tick_log = now;
     }
 
