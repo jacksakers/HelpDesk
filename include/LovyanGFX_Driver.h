@@ -78,7 +78,7 @@ public:
             cfg.y_max          = 479;
             cfg.pin_int        = 47;     // INT pin — enables interrupt-driven touch reads
             cfg.bus_shared     = false;
-            cfg.offset_rotation = 2;     // Adjust for panel rotation 1 vs example's rotation 3 (180° difference)
+            cfg.offset_rotation = 0;     // No rotation offset needed for panel rotation 1
             cfg.i2c_port       = 0;
             cfg.i2c_addr       = 0x14;    // GT911 alternate address (matches Desktop_Assistant_35 example)
             cfg.pin_sda        = 15;

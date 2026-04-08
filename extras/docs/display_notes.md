@@ -121,7 +121,7 @@ cfg.pin_sda         = 15
 cfg.pin_scl         = 16
 cfg.pin_int         = 47     // enables interrupt-driven reads
 cfg.freq            = 400000
-cfg.offset_rotation = 2      // transforms touch coords to match panel rotation 1
+cfg.offset_rotation = 0      # no rotation offset needed for panel rotation 1
 ```
 
 **CRITICAL:** The GT911 touch sensor is physically mounted in **portrait**
@@ -130,9 +130,10 @@ physical layout (319 and 479), even when the display is in landscape mode.
 The `offset_rotation` parameter transforms coordinates to align with the
 display's rotation setting.
 
-For panel `offset_rotation = 1` (landscape, USB right), touch `offset_rotation = 2`
+For panel `offset_rotation = 1` (landscape, USB right), touch `offset_rotation = 0`
 provides correct alignment. The Desktop_Assistant_35 example uses panel rotation 3
-with touch rotation 0 — difference of 180° (2 rotation steps).
+with touch rotation 0. Despite the 180° difference in panel rotation, both configs
+use touch rotation 0 (empirically determined).
 
 The factory code for the non-Advance model uses `Touch_FT5x06` at
 address 0x38. That is wrong for the Advance board — the Advance uses a GT911.

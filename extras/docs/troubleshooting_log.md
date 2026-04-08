@@ -78,6 +78,30 @@ should match visual position. Check serial output: `[Touch] x=... y=...`
 
 ---
 
+## Issue #5: Touch Coordinates Fully Inverted (RESOLVED)
+
+**Date:** 2026-04-07 (evening)  
+**Symptom:** Touch detection works but coordinates are inverted on both axes:
+- Press lower-right corner → triggers upper-left (back button)
+- Press upper-right corner → triggers bottom-left (Zen frame)
+
+**Root Cause:** Touch `offset_rotation = 2` was incorrect. The 180° offset assumption
+(panel rot 1 vs example's rot 3) over-rotated the coordinates. Panel rotation 1
+(landscape 90° CW) with GT911 portrait sensor needs `offset_rotation = 0`.
+
+**Fix:** Changed touch `offset_rotation` from 2 to 0 in `LovyanGFX_Driver.h`.
+
+**Key Lesson:** Touch offset_rotation mapping is not always a simple arithmetic
+difference from reference code. Test with actual touches and adjust empirically.
+For panel rotation 1 (landscape, USB-right), touch rotation 0 is correct.
+
+**Verification:** Touch each corner and center. Visual press should match UI response:
+- Upper-left → back button
+- Upper-right → should NOT trigger Zen frame (lower-left)
+- Lower-right → should NOT trigger back button
+
+---
+
 ## Diagnostic Serial Output to Watch For
 
 After flashing, open serial monitor at 115200 baud. Key lines:

@@ -134,14 +134,18 @@ sent 2 bytes/pixel, causing byte-alignment drift.
 **Fix:** Removed `setColorDepth(16)`. Leave panel at 18-bit default. LovyanGFX
 `pushImage` with `rgb565_t*` auto-converts 16→18 bit correctly.
 
-### ✓ RESOLVED: Touch Coordinates Misaligned
+### ✓ RESOLVED: Touch Coordinates Misaligned → Inverted → Fixed
 
-**Issue:** Touch detected but coordinates wrong. Upper-left touch triggered center buttons.  
+**Issue (1st attempt):** Touch detected but coordinates wrong. Upper-left touch triggered center buttons.  
 **Cause:** Touch x_max/y_max were set to display dimensions (480×320 landscape),
-but GT911 sensor hardware is physically portrait (320×480). LovyanGFX transforms
-coordinates from sensor space to display space using `offset_rotation`.  
+but GT911 sensor hardware is physically portrait (320×480).  
 **Fix:** Set touch x_max=319, y_max=479 (portrait, matches sensor hardware),
-then adjusted `offset_rotation = 2` to align with panel rotation 1.
+set `offset_rotation = 2` to align with panel rotation 1.
+
+**Issue (2nd attempt):** Touch coordinates fully inverted (lower-right → upper-left).  
+**Cause:** `offset_rotation = 2` over-rotated (180° too much).  
+**Final fix:** Changed touch `offset_rotation` from 2 to 0. Panel rotation 1 with
+portrait GT911 sensor needs no rotation offset.
 
 ---
 

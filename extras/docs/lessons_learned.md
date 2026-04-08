@@ -58,11 +58,12 @@ cfg.offset_rotation = 2;  // Transform to align with display rotation
 portrait), then applies a rotation transform using `offset_rotation` to align with
 the display's `offset_rotation`. For our HelpDesk config:
 - Panel `offset_rotation = 1` (landscape, USB connector on right)
-- Touch `offset_rotation = 2` (180° from the working example's 0)
+- Touch `offset_rotation = 0` (no rotation offset — empirically determined)
 
 **Key Takeaway:** Touch sensor coordinates are **hardware-based**, not display-based.
 Configure x/y to match the physical sensor, then use `offset_rotation` to align with
-how the display is rotated.
+how the display is rotated. **Do not assume** offset_rotation is an arithmetic function
+of panel rotation — test with actual touches and adjust until corners map correctly.
 
 ---
 
