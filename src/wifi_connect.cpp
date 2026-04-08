@@ -8,7 +8,7 @@
 
 // ─── Credentials — update these before flashing ─────────────────────────────
 const char * wifi_ssid     = "J+K Gecko, Kitty, and Fish Cafe";
-const char * wifi_password = "AA82841bb!";
+const char * wifi_password = "*******";
 
 // ─── Timeout ────────────────────────────────────────────────────────────────
 #define WIFI_CONNECT_TIMEOUT_MS 15000UL
