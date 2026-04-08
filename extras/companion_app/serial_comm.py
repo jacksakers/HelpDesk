@@ -84,6 +84,9 @@ async def timesync_loop() -> None:
             ts = int(time.time())
             send(f'{{"event":"timesync","ts":{ts}}}\n')
             logging.debug(f"[Handshake] Sent timesync ts={ts}")
+
+
+async def listener(
     on_event: Callable[[dict], Awaitable[None]],
     on_connect_change: Optional[Callable[[bool], Awaitable[None]]] = None,
 ) -> None:
