@@ -6,3 +6,6 @@
 
 # wifi connect credentials
 src/wifi_connect.cpp
+
+# pycache__
+__pycache__/

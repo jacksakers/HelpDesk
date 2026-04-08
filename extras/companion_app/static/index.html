@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HelpDesk Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-6 font-sans">
+    <div class="max-w-5xl mx-auto space-y-5">
+
+        <!-- ── Header ── -->
+        <div class="flex items-center justify-between bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+            <div>
+                <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">HelpDesk Companion</h1>
+                <p class="text-gray-400 text-sm mt-0.5">Host PC Management Dashboard</p>
+            </div>
+            <div class="flex items-center gap-6 text-sm">
+                <div class="flex items-center gap-2">
+                    <div id="ws-dot" class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
+                    <span id="ws-text" class="text-gray-300">Dashboard</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div id="serial-dot" class="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>
+                    <span id="serial-text" class="text-gray-300">HelpDesk</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Row 1: Telemetry + Macros ── -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+            <!-- Telemetry Card -->
+            <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+                <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <span>📊</span> Live PC Telemetry
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-gray-400">CPU</span>
+                            <span id="cpu-val" class="font-mono text-blue-400">--%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div id="cpu-bar" class="bg-blue-500 h-2 rounded-full transition-all duration-500" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-gray-400">RAM</span>
+                            <span id="ram-val" class="font-mono text-emerald-400">--%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div id="ram-bar" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width:0%"></div>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-4 italic">Streaming to HelpDesk over serial.</p>
+            </div>
+
+            <!-- Macro Engine Card -->
+            <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+                <h2 class="text-lg font-semibold mb-1 flex items-center gap-2">
+                    <span>⚡</span> Macro Engine
+                </h2>
+                <p class="text-xs text-gray-500 mb-4">
+                    Trigger here or press a button on the HelpDesk device.
+                    Edit <code class="text-gray-400">macros.json</code> to configure actions.
+                </p>
+                <div class="grid grid-cols-2 gap-3" id="macro-grid">
+                    <!-- Populated by buildMacroGrid() -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ── Activity Log ── -->
+        <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-semibold flex items-center gap-2">
+                    <span>📋</span> Activity Log
+                </h2>
+                <button onclick="clearLog()" class="text-xs text-gray-500 hover:text-gray-300 transition">Clear</button>
+            </div>
+            <div id="activity-log" class="space-y-1 max-h-52 overflow-y-auto font-mono text-sm">
+                <p id="log-empty" class="text-gray-500 text-xs italic">No events yet.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ── Macro definitions ─────────────────────────────────────────────────
+        // Keep this list in sync with macros.json on the server.
+        const MACROS = [
+            { id: "mute_mic",  label: "Mute Mic",  color: "blue"    },
+            { id: "skip_song", label: "Skip Song", color: "emerald" },
+            { id: "macro_1",   label: "Macro 1",   color: "purple"  },
+            { id: "macro_2",   label: "Macro 2",   color: "orange"  },
+        ];
+
+        const COLORS = {
+            blue:    "bg-blue-600 hover:bg-blue-500",
+            emerald: "bg-emerald-600 hover:bg-emerald-500",
+            purple:  "bg-purple-600 hover:bg-purple-500",
+            orange:  "bg-orange-600 hover:bg-orange-500",
+        };
+
+        // ── Build macro button grid ───────────────────────────────────────────
+        function buildMacroGrid() {
+            const grid = document.getElementById("macro-grid");
+            MACROS.forEach(m => {
+                const btn = document.createElement("button");
+                btn.className = `${COLORS[m.color] || "bg-gray-600 hover:bg-gray-500"} text-white font-medium py-2.5 px-4 rounded-lg transition text-sm`;
+                btn.textContent = m.label;
+                btn.onclick = () => triggerMacro(m.id);
+                grid.appendChild(btn);
+            });
+        }
+
+        // ── Activity log ──────────────────────────────────────────────────────
+        function logEvent(source, macroId, action) {
+            const log = document.getElementById("activity-log");
+            const empty = document.getElementById("log-empty");
+            if (empty) empty.remove();
+
+            const time        = new Date().toLocaleTimeString();
+            const sourceLabel = source === "device" ? "🖥️ HelpDesk" : "🖱️ Dashboard";
+            const borderColor = source === "device" ? "border-orange-400" : "border-blue-400";
+            const textColor   = source === "device" ? "text-orange-300"   : "text-blue-300";
+
+            const entry = document.createElement("div");
+            entry.className = `border-l-2 pl-2 py-0.5 ${borderColor}`;
+            entry.innerHTML =
+                `<span class="text-gray-500 text-xs">${time}</span> ` +
+                `<span class="${textColor}">${sourceLabel}</span> → ` +
+                `<span class="text-white">${macroId}</span> ` +
+                `<span class="text-gray-400 text-xs">— ${action}</span>`;
+
+            log.prepend(entry);
+            // Trim to 50 entries to avoid unbounded growth
+            while (log.children.length > 50) log.removeChild(log.lastChild);
+        }
+
+        function clearLog() {
+            document.getElementById("activity-log").innerHTML =
+                '<p id="log-empty" class="text-gray-500 text-xs italic">No events yet.</p>';
+        }
+
+        // ── REST macro trigger ────────────────────────────────────────────────
+        async function triggerMacro(macroId) {
+            try {
+                await fetch(`/api/macros/${encodeURIComponent(macroId)}/trigger`, { method: "POST" });
+                // Server broadcasts a macro_event over WS — the log updates there.
+            } catch (err) {
+                console.error("Macro trigger failed:", err);
+                logEvent("dashboard", macroId, "Error: request failed");
+            }
+        }
+
+        // ── WebSocket ─────────────────────────────────────────────────────────
+        let ws;
+
+        function connectWs() {
+            ws = new WebSocket(`ws://${window.location.host}/ws`);
+
+            ws.onopen = () => setIndicator("ws", true, "Dashboard");
+
+            ws.onmessage = ({ data }) => {
+                const msg = JSON.parse(data);
+                if (msg.type === "telemetry")     updateTelemetry(msg);
+                if (msg.type === "macro_event")   logEvent(msg.source, msg.macro_id, msg.action);
+                if (msg.type === "serial_status") setIndicator("serial", msg.connected, "HelpDesk");
+            };
+
+            ws.onclose = () => {
+                setIndicator("ws",     false, "Dashboard");
+                setIndicator("serial", false, "HelpDesk");
+                setTimeout(connectWs, 2000);
+            };
+        }
+
+        // ── UI helpers ────────────────────────────────────────────────────────
+        function updateTelemetry({ cpu, ram }) {
+            setBar("cpu", cpu);
+            setBar("ram", ram);
+        }
+
+        function setBar(metric, value) {
+            document.getElementById(`${metric}-val`).innerText = `${value}%`;
+            document.getElementById(`${metric}-bar`).style.width = `${value}%`;
+        }
+
+        function setIndicator(id, connected, label) {
+            const dot = document.getElementById(`${id}-dot`);
+            const txt = document.getElementById(`${id}-text`);
+            if (connected) {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]";
+                txt.innerText = `${label}: Connected`;
+            } else {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse";
+                txt.innerText = `${label}: Disconnected`;
+            }
+        }
+
+        // ── Init ──────────────────────────────────────────────────────────────
+        buildMacroGrid();
+        connectWs();
+    </script>
+</body>
+</html>

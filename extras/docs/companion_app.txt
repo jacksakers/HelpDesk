@@ -28,6 +28,8 @@ Current active app on the HelpDesk screen.
 
 Storage capacity remaining on the HelpDesk's SD card.
 
+A log showing the serial output coming from the HelpDesk.
+
 B. Media Manager
 
 Photo Upload: Drag-and-drop interface to upload images. The Python backend will automatically resize and convert the images to the optimal format (e.g., .bmp or .rgb565 raw pixel arrays) before sending them to the ESP32 to save the microcontroller from doing heavy image processing.
@@ -50,7 +52,9 @@ Configure the zip code for the OpenWeatherMap API.
 
 Macro Configurator: A UI to map HelpDesk buttons to local PC scripts or keyboard shortcuts.
 
-E. App & Game Installer (The "Game Engine")
+Change things like wifi name and password, and OpenWeatherMap API key.
+
+E. App & Game Installer (The "Game Engine") ADD THIS LATER
 
 An "App Store" style tab for the device.
 

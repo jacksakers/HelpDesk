@@ -1,0 +1,23 @@
+{
+    "_comment": "Map macro IDs to actions. Supported types: hotkey, launch, text.",
+    "mute_mic": {
+        "label": "Mute Microphone",
+        "type": "hotkey",
+        "keys": ["ctrl", "shift", "m"]
+    },
+    "skip_song": {
+        "label": "Skip Song",
+        "type": "hotkey",
+        "keys": ["nexttrack"]
+    },
+    "macro_1": {
+        "label": "Custom Macro 1",
+        "type": "hotkey",
+        "keys": ["ctrl", "alt", "1"]
+    },
+    "macro_2": {
+        "label": "Custom Macro 2",
+        "type": "hotkey",
+        "keys": ["ctrl", "alt", "2"]
+    }
+}
