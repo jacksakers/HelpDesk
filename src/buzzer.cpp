@@ -8,6 +8,7 @@
 
 /* ── Hardware ────────────────────────────────────────────── */
 #define BUZZER_PIN    8
+#define BUZZER_CH     0          /* LEDC channel (ESP32 core 2.x)   */
 #define LEDC_RES      8          /* 8-bit resolution (duty 0–255)   */
 #define LEDC_DUTY_50  128        /* 50% duty = loudest passive buzz */
 
@@ -47,12 +48,12 @@ static void start_step(uint8_t tone_idx, uint8_t step_idx)
     const tone_step_t * step = &k_seqs[tone_idx][step_idx];
     if(step->freq_hz == 0 && step->ms == 0) {
         /* Sequence complete — silence */
-        ledcWrite(BUZZER_PIN, 0);
+        ledcWrite(BUZZER_CH, 0);
         s_playing = false;
         return;
     }
-    ledcWriteTone(BUZZER_PIN, step->freq_hz);
-    ledcWrite(BUZZER_PIN, LEDC_DUTY_50);
+    ledcWriteTone(BUZZER_CH, step->freq_hz);
+    ledcWrite(BUZZER_CH, LEDC_DUTY_50);
     s_cur_tone   = tone_idx;
     s_cur_step   = step_idx;
     s_step_start = (uint32_t)millis();
@@ -62,8 +63,10 @@ static void start_step(uint8_t tone_idx, uint8_t step_idx)
 /* ── Public API ──────────────────────────────────────────── */
 void buzzerInit(void)
 {
-    ledcAttach(BUZZER_PIN, 2000, LEDC_RES);
-    ledcWrite(BUZZER_PIN, 0);   /* Silent on start */
+    /* ESP32 Arduino core 2.x channel-based LEDC API */
+    ledcSetup(BUZZER_CH, 2000, LEDC_RES);
+    ledcAttachPin(BUZZER_PIN, BUZZER_CH);
+    ledcWrite(BUZZER_CH, 0);   /* Silent on start */
 }
 
 void buzzerPlay(buzz_tone_t tone)
@@ -85,7 +88,7 @@ void buzzerSetMuted(bool muted)
 {
     s_muted = muted;
     if(muted) {
-        ledcWrite(BUZZER_PIN, 0);
+        ledcWrite(BUZZER_CH, 0);
         s_playing = false;
     }
 }
