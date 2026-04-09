@@ -4,6 +4,7 @@
 # Depends  : serial_comm, telemetry, macros, media_manager, settings_store, static/index.html
 
 import asyncio
+import json
 import logging
 from pathlib import Path
 from typing import Optional
@@ -167,6 +168,10 @@ async def update_settings(body: _SettingsBody):
             forwarded = resp.status_code == 200
         except Exception as e:
             logging.warning(f"[Settings] Forward to device failed: {e}")
+
+    # Also push via serial — works even before WiFi is configured (e.g. first-time WiFi credentials)
+    serial_payload = json.dumps({"event": "settings", **updates})
+    serial_comm.send(serial_payload + "\n")
 
     return {"status": "saved", "forwarded_to_device": forwarded}
 
