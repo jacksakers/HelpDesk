@@ -77,13 +77,12 @@ async def serve_dashboard():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """Streams live telemetry and relays device events to the dashboard."""
+    """Streams live telemetry to the dashboard client."""
     await _manager.connect(websocket)
     try:
         while True:
             data = telemetry.get()
-            serial_comm.send(f'{{"c":{data["cpu"]},"r":{data["ram"]}}}\n')
-            await _manager.broadcast({"type": "telemetry", **data})
+            await websocket.send_json({"type": "telemetry", **data})
             await asyncio.sleep(1)
     except WebSocketDisconnect:
         logging.info("Dashboard client disconnected.")
@@ -172,42 +171,69 @@ async def update_settings(body: _SettingsBody):
     return {"status": "saved", "forwarded_to_device": forwarded}
 
 
+# ── Background telemetry task ────────────────────────────────────────────────
+
+async def _telemetry_loop() -> None:
+    """Pushes PC metrics to the HelpDesk every 5 seconds over serial."""
+    while True:
+        await asyncio.sleep(5)
+        if serial_comm.is_connected():
+            data = telemetry.get()
+            serial_comm.send(f'{{"c":{data["cpu"]},"r":{data["ram"]}}}\n')
+
+
 # ── Serial event routing ─────────────────────────────────────────────────────
 
 async def _on_serial_event(data: dict) -> None:
     """Routes JSON events received from the ESP32 to the right handler."""
     event = data.get("event")
 
+    if event == "raw_line":
+        # Non-JSON device output (boot messages, debug prints, etc.).
+        # Already logged to terminal by serial_comm; also show in dashboard log.
+        line = data.get("line", "")
+        await _manager.broadcast({"type": "serial_log", "label": line})
+        return
+
     if event == "hello":
-        ip = data.get("ip", "")
-        # Auto-save device IP when we learn it (skip placeholder 0.0.0.0)
+        ip   = data.get("ip", "")
+        ssid = data.get("ssid", "")
+        fw   = data.get("fw", "")
+        sd   = "ok" if data.get("sd_ok") else "missing"
+        logging.info(f"[RX] device hello — ip={ip}  ssid={ssid}  fw={fw}  sd={sd}")
         if ip and ip != "0.0.0.0" and not settings_store.get("device_ip"):
             settings_store.save({"device_ip": ip})
             logging.info(f"[Handshake] Auto-saved device IP: {ip}")
         await _manager.broadcast({
             "type":         "device_info",
             "ip":           ip,
-            "ssid":         data.get("ssid", ""),
-            "fw":           data.get("fw", ""),
+            "ssid":         ssid,
+            "fw":           fw,
             "sd_ok":        data.get("sd_ok", False),
             "sd_total_mb":  data.get("sd_total_mb", 0),
             "sd_used_mb":   data.get("sd_used_mb", 0),
         })
+        await _manager.broadcast({"type": "serial_log", "label": f"hello — ip:{ip}  fw:{fw}  sd:{sd}"})
         return
 
     if event == "status":
+        screen  = data.get("screen", "")
+        sd_used = data.get("sd_used_mb", 0)
+        logging.info(f"[RX] device status — screen={screen}  sd_used={sd_used} MB")
         await _manager.broadcast({
             "type":       "device_status",
-            "screen":     data.get("screen", ""),
-            "sd_used_mb": data.get("sd_used_mb", 0),
+            "screen":     screen,
+            "sd_used_mb": sd_used,
         })
+        await _manager.broadcast({"type": "serial_log", "label": f"status — screen:{screen}  sd:{sd_used} MB"})
         return
 
     if event == "btn_press":
         macro_id = data.get("id", "")
-        logging.info(f"ESP32 macro trigger: {macro_id}")
+        logging.info(f"[RX] device btn_press — id={macro_id}")
         action = macros.execute(macro_id)
         serial_comm.send(f'{{"event":"macro_ok","id":"{macro_id}"}}\n')
+        logging.info(f"[TX] macro_ok  id={macro_id}")
         await _manager.broadcast({
             "type": "macro_event",
             "macro_id": macro_id,
@@ -218,7 +244,10 @@ async def _on_serial_event(data: dict) -> None:
 
 async def _on_connect_change(connected: bool) -> None:
     """Notifies the dashboard when the HelpDesk serial connection changes."""
+    status = "connected" if connected else "disconnected"
+    logging.info(f"[Serial] HelpDesk {status}.")
     await _manager.broadcast({"type": "serial_status", "connected": connected})
+    await _manager.broadcast({"type": "serial_log", "label": f"HelpDesk {status}"})
 
 
 # ── Startup ──────────────────────────────────────────────────────────────────
@@ -227,6 +256,12 @@ async def _on_connect_change(connected: bool) -> None:
 async def startup_event():
     asyncio.create_task(serial_comm.listener(_on_serial_event, _on_connect_change))
     asyncio.create_task(serial_comm.timesync_loop())
+    asyncio.create_task(_telemetry_loop())
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    serial_comm.disconnect()
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────

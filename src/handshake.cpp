@@ -11,7 +11,7 @@
 #include <SD.h>
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-#define HANDSHAKE_STATUS_INTERVAL_MS  30000UL   // Lightweight status every 30 s
+#define HANDSHAKE_STATUS_INTERVAL_MS  10000UL   // Lightweight status every 10 s (heartbeat)
 #define FW_VERSION                    "1.0"
 
 // ── Private state ─────────────────────────────────────────────────────────────

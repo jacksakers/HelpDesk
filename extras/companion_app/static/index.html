@@ -285,6 +285,20 @@ function logEvent(source, id, action) {
     log.prepend(entry);
     while (log.children.length > 50) log.removeChild(log.lastChild);
 }
+function logSerialEvent(label) {
+    const log = document.getElementById('activity-log');
+    const empty = document.getElementById('log-empty');
+    if (empty) empty.remove();
+    const time = new Date().toLocaleTimeString();
+    const entry = document.createElement('div');
+    entry.className = 'border-l-2 pl-2 py-0.5 border-yellow-700';
+    entry.innerHTML = '<span class="text-gray-500 text-xs">'+time+'</span> <span class="text-yellow-400">HelpDesk</span> <span class="text-gray-300 text-xs font-mono">'+escapeHtml(label)+'</span>';
+    log.prepend(entry);
+    while (log.children.length > 50) log.removeChild(log.lastChild);
+}
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 function clearLog() {
     document.getElementById('activity-log').innerHTML = '<p id="log-empty" class="text-gray-500 text-xs italic">No events yet.</p>';
 }
@@ -358,6 +372,7 @@ function connectWs() {
         if(msg.type==='device_info')   updateDeviceInfo(msg);
         if(msg.type==='device_status') updateDeviceStatus(msg);
         if(msg.type==='serial_status') setIndicator('serial',msg.connected,'HelpDesk');
+        if(msg.type==='serial_log')    logSerialEvent(msg.label||'');
     };
     ws.onclose = ()=>{ setIndicator('ws',false,'Dashboard'); setIndicator('serial',false,'HelpDesk'); setTimeout(connectWs,2000); };
 }
