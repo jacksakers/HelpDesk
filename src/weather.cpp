@@ -5,11 +5,12 @@
 
 #include "weather.h"
 #include "settings.h"
-#include "ui_Screen2.h"
+#include "ui.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <lvgl.h>
 
 static unsigned long s_last_weather_ms = 0;
 #define WEATHER_INTERVAL_MS 600000UL   // 10 minutes

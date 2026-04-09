@@ -20,7 +20,7 @@
 
 #include "zen_frame.h"
 #include "sd_card.h"
-#include "ui_Screen6.h"
+#include "ui.h"
 #include <Arduino.h>
 #include <SD.h>
 #include <lvgl.h>

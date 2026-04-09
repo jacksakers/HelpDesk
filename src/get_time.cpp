@@ -4,9 +4,10 @@
 // Depends  : get_time.h, ui_Screen2.h, Arduino ESP32 built-in SNTP
 
 #include "get_time.h"
-#include "ui_Screen2.h"
+#include "ui.h"
 #include <Arduino.h>
 #include <time.h>
+#include <lvgl.h>
 
 static unsigned long s_last_update_ms = 0;
 
