@@ -5,6 +5,7 @@
 
 #include "pc_monitor.h"
 #include "handshake.h"
+#include "settings.h"
 #include "ui.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -62,6 +63,16 @@ static void process_line(const char * json)
             /* Companion just connected — reply with our full device info. */
             Serial.println("[Handshake] host_hello received; sending hello.");
             handshakeSendHello();
+        }
+        if (strcmp(event, "settings") == 0) {
+            /* Companion sent updated settings — apply and persist to SD. */
+            if (doc["wifi_ssid"].is<const char*>())     settingsSetWifiSSID(doc["wifi_ssid"]);
+            if (doc["wifi_password"].is<const char*>()) settingsSetWifiPassword(doc["wifi_password"]);
+            if (doc["owm_api_key"].is<const char*>())   settingsSetOwmKey(doc["owm_api_key"]);
+            if (doc["zip_code"].is<const char*>())      settingsSetOwmCity(doc["zip_code"]);
+            if (doc["units"].is<const char*>())         settingsSetOwmUnits(doc["units"]);
+            settingsSave();
+            Serial.println("[Serial] Settings updated and saved to SD.");
         }
         /* timesync: companion sends {"event":"timesync","ts":<unix_epoch>}.
            TODO: pass ts to an RTC/NTP module when that module is ready. */
