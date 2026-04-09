@@ -1,9 +1,10 @@
 // Project  : HelpDesk
 // File     : ui_Screen7.c
-// Purpose  : PCMonitor screen — UART-driven PC metrics placeholder layout
-// Depends  : ui.h (LVGL 9.x)
+// Purpose  : PCMonitor screen — UART-driven PC metrics + serial log viewer
+// Depends  : ui.h (LVGL 9.x), handshake.h
 
 #include "ui.h"
+#include "handshake.h"
 
 /* ── Colours ───────────────────────────────────────────────── */
 #define CLR_BG       0x1A1A2E
@@ -14,9 +15,12 @@
 #define CLR_RAM      0x42A5F5   /* Blue bars for RAM              */
 #define CLR_GPU      0x66BB6A   /* Green bars for GPU             */
 #define CLR_SUBTLE   0xAAAAAA
+#define CLR_LOG_BG   0x0D1321   /* Dark navy terminal background  */
+#define CLR_LOG_TXT  0x4CAF50   /* Green terminal text            */
 
 /* ── Dimensions ────────────────────────────────────────────── */
 #define SCREEN_W     480
+#define SCREEN_H     320
 #define HDR_H         30
 #define ROW_H         26   /* Height of each metric row      */
 #define ROW_GAP        8
@@ -26,15 +30,23 @@
 #define FIRST_ROW_Y   42
 #define LEFT_PAD       8
 
+/* Log panel — occupies the space below the metric rows */
+#define LOG_SECTION_Y  (FIRST_ROW_Y + 3 * (ROW_H + ROW_GAP))  /* y=144 */
+#define LOG_Y          (LOG_SECTION_Y + 14)                     /* y=158 */
+#define LOG_W          (SCREEN_W - 2 * LEFT_PAD)                /* 464px */
+#define LOG_H          (SCREEN_H - LOG_Y - 2)                   /* 160px */
+#define LOG_MAX_CHARS  1800   /* Trim oldest content above this threshold */
+
 /* ── Public objects ────────────────────────────────────────── */
 lv_obj_t * ui_Screen7     = NULL;
 lv_obj_t * ui_CpuBar      = NULL;
 lv_obj_t * ui_CpuLabel    = NULL;
 lv_obj_t * ui_RamBar      = NULL;
 lv_obj_t * ui_RamLabel    = NULL;
-lv_obj_t * ui_GpuBar      = NULL;
-lv_obj_t * ui_GpuLabel    = NULL;
+lv_obj_t * ui_GpuBar        = NULL;
+lv_obj_t * ui_GpuLabel      = NULL;
 lv_obj_t * ui_PcStatusLabel = NULL;
+lv_obj_t * ui_SerialLogArea = NULL;
 
 /* ── Event callbacks ───────────────────────────────────────── */
 static void back_to_launcher_ev(lv_event_t * e)
@@ -76,6 +88,14 @@ static void build_header(lv_obj_t * scr)
     lv_label_set_text(title, "PCMonitor");
     lv_obj_set_style_text_color(title, lv_color_white(), 0);
     lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
+
+    /* Compact USB status indicator — right side of header */
+    lv_obj_t * status_lbl = lv_label_create(hdr);
+    lv_label_set_text(status_lbl, LV_SYMBOL_USB " --");
+    lv_obj_set_style_text_color(status_lbl, lv_color_hex(CLR_SUBTLE), 0);
+    lv_obj_set_style_text_font(status_lbl, &lv_font_montserrat_10, 0);
+    lv_obj_align(status_lbl, LV_ALIGN_RIGHT_MID, -6, 0);
+    ui_PcStatusLabel = status_lbl;
 }
 
 /* Builds one metric row: [name]  [bar]  [value %] */
@@ -127,23 +147,45 @@ static void build_body(lv_obj_t * scr)
     build_metric_row(scr, "GPU", CLR_GPU,
                      FIRST_ROW_Y + 2 * (ROW_H + ROW_GAP),
                      &ui_GpuBar, &ui_GpuLabel);
+    /* Status label is now embedded in the header — see build_header(). */
+}
 
-    /* Connection status */
-    lv_obj_t * status = lv_label_create(scr);
-    lv_label_set_text(status,
-                      LV_SYMBOL_USB "  Waiting for serial data...\n"
-                      "Run the companion script on your PC.");
-    lv_obj_set_style_text_color(status, lv_color_hex(CLR_SUBTLE), 0);
-    lv_obj_set_style_text_align(status, LV_TEXT_ALIGN_CENTER, 0);
-    lv_label_set_long_mode(status, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(status, 280);
-    lv_obj_align(status, LV_ALIGN_BOTTOM_MID, 0, -12);
-    ui_PcStatusLabel = status;
+static void build_log_panel(lv_obj_t * scr)
+{
+    /* Section heading */
+    lv_obj_t * heading = lv_label_create(scr);
+    lv_label_set_text(heading, "SERIAL LOG");
+    lv_obj_set_style_text_color(heading, lv_color_hex(CLR_SUBTLE), 0);
+    lv_obj_set_style_text_font(heading, &lv_font_montserrat_10, 0);
+    lv_obj_set_pos(heading, LEFT_PAD, LOG_SECTION_Y + 1);
+
+    /* Read-only terminal textarea */
+    lv_obj_t * ta = lv_textarea_create(scr);
+    lv_obj_set_size(ta, LOG_W, LOG_H);
+    lv_obj_set_pos(ta, LEFT_PAD, LOG_Y);
+    lv_textarea_set_text(ta, "");
+    /* Prevent touch from opening the on-screen keyboard */
+    lv_obj_remove_flag(ta, LV_OBJ_FLAG_CLICK_FOCUSABLE);
+    /* Dark terminal styling */
+    lv_obj_set_style_bg_color(ta, lv_color_hex(CLR_LOG_BG), 0);
+    lv_obj_set_style_bg_opa(ta, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(ta, lv_color_hex(CLR_BAR_BG), 0);
+    lv_obj_set_style_border_width(ta, 1, 0);
+    lv_obj_set_style_radius(ta, 4, 0);
+    lv_obj_set_style_text_color(ta, lv_color_hex(CLR_LOG_TXT), 0);
+    lv_obj_set_style_text_font(ta, &lv_font_montserrat_10, 0);
+    lv_obj_set_style_pad_all(ta, 4, 0);
+    /* Hide the blinking cursor — this is display-only */
+    lv_obj_set_style_opa(ta, LV_OPA_TRANSP, LV_PART_CURSOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_opa(ta, LV_OPA_TRANSP, LV_PART_CURSOR | LV_STATE_FOCUSED);
+
+    ui_SerialLogArea = ta;
 }
 
 /* ── Public lifecycle ──────────────────────────────────────── */
 void ui_Screen7_screen_init(void)
 {
+    handshakeSetScreen("pc_monitor");
     ui_Screen7 = lv_obj_create(NULL);
     lv_obj_remove_flag(ui_Screen7, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(ui_Screen7, lv_color_hex(CLR_BG), 0);
@@ -154,18 +196,38 @@ void ui_Screen7_screen_init(void)
 
     build_header(ui_Screen7);
     build_body(ui_Screen7);
+    build_log_panel(ui_Screen7);
 }
 
 void ui_Screen7_screen_destroy(void)
 {
-    ui_CpuBar      = NULL;
-    ui_CpuLabel    = NULL;
-    ui_RamBar      = NULL;
-    ui_RamLabel    = NULL;
-    ui_GpuBar      = NULL;
-    ui_GpuLabel    = NULL;
+    ui_CpuBar        = NULL;
+    ui_CpuLabel      = NULL;
+    ui_RamBar        = NULL;
+    ui_RamLabel      = NULL;
+    ui_GpuBar        = NULL;
+    ui_GpuLabel      = NULL;
     ui_PcStatusLabel = NULL;
+    ui_SerialLogArea = NULL;
 
     if(ui_Screen7) lv_obj_delete(ui_Screen7);
     ui_Screen7 = NULL;
+}
+
+void pcMonitorLogLine(const char * line)
+{
+    if (!ui_SerialLogArea) return;
+
+    /* Trim the oldest content when approaching the character cap */
+    const char * cur = lv_textarea_get_text(ui_SerialLogArea);
+    if (cur && strlen(cur) > LOG_MAX_CHARS) {
+        const char * trim = cur + LOG_MAX_CHARS / 2;
+        const char * nl   = strchr(trim, '\n');
+        lv_textarea_set_text(ui_SerialLogArea, nl ? nl + 1 : "");
+    }
+
+    lv_textarea_add_text(ui_SerialLogArea, line);
+    lv_textarea_add_text(ui_SerialLogArea, "\n");
+    /* Scroll to the latest line */
+    lv_obj_scroll_to_y(ui_SerialLogArea, INT32_MAX, LV_ANIM_OFF);
 }

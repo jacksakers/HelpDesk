@@ -25,6 +25,11 @@ void zenFrameRefresh(void);
 // cycle interval elapses.  No-op if fewer than 2 images are found.
 void handleZenFrame(unsigned long now_ms);
 
+// Rescans /images on the SD card and refreshes the current display.
+// Call after a new image is uploaded via WiFi so the playlist updates
+// without requiring a reboot.
+void zenFrameRescan(void);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

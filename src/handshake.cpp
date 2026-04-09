@@ -89,4 +89,6 @@ void handshakeSetScreen(const char * name)
 {
     strncpy(s_screen_name, name, sizeof(s_screen_name) - 1);
     s_screen_name[sizeof(s_screen_name) - 1] = '\0';
+    /* Notify the companion immediately — don't wait for the next heartbeat. */
+    send_status();
 }

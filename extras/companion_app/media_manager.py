@@ -6,6 +6,7 @@
 import io
 import logging
 import re
+import struct
 from pathlib import Path
 
 try:
@@ -36,9 +37,53 @@ def _sanitize_filename(name: str) -> str:
     return name or "unnamed"
 
 
+def _to_lvgl_bin(img: "Image.Image", w: int, h: int) -> bytes:
+    """
+    Convert a PIL Image to an LVGL v9 binary image file (.bin).
+
+    Format (little-endian):
+      Bytes 0-1  : magic (0x19), cf (0x12 = LV_COLOR_FORMAT_RGB565)
+      Bytes 2-3  : flags (0x0000)
+      Bytes 4-5  : width  (uint16)
+      Bytes 6-7  : height (uint16)
+      Bytes 8-9  : stride (uint16) = width * 2
+      Bytes 10-11: reserved (0x0000)
+      Remaining  : RGB565 pixels, row-major, little-endian
+    """
+    # Center-fit onto a black canvas of the exact target size
+    canvas = Image.new("RGB", (w, h), (0, 0, 0))
+    img.thumbnail((w, h), Image.LANCZOS)
+    offset = ((w - img.width) // 2, (h - img.height) // 2)
+    canvas.paste(img, offset)
+
+    # LVGL v9 binary header: 12 bytes
+    header = struct.pack("<BBHHHHH",
+        0x19,       # magic
+        0x12,       # LV_COLOR_FORMAT_RGB565
+        0x0000,     # flags
+        w,          # width
+        h,          # height
+        w * 2,      # stride (bytes per row)
+        0x0000,     # reserved
+    )
+
+    # Convert RGB pixels to RGB565 little-endian
+    raw = canvas.tobytes()   # RGBRGB... bytes
+    pixels = bytearray(len(raw) // 3 * 2)
+    for i in range(0, len(raw), 3):
+        r, g, b = raw[i], raw[i + 1], raw[i + 2]
+        rgb565 = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+        j = (i // 3) * 2
+        pixels[j]     = rgb565 & 0xFF
+        pixels[j + 1] = (rgb565 >> 8) & 0xFF
+
+    return header + bytes(pixels)
+
+
 def process_image(file_bytes: bytes, filename: str) -> tuple[bytes, str]:
     """
-    Resizes the image to fit _DISPLAY_W × _DISPLAY_H and converts to BMP.
+    Resizes the image to fit _DISPLAY_W × _DISPLAY_H on a black canvas and
+    converts to LVGL v9 binary format (.bin) for ZenFrame.
     Returns (processed_bytes, output_filename).
     If Pillow is unavailable, returns the original bytes unchanged.
     """
@@ -48,11 +93,8 @@ def process_image(file_bytes: bytes, filename: str) -> tuple[bytes, str]:
         return file_bytes, _sanitize_filename(filename)
 
     img = Image.open(io.BytesIO(file_bytes)).convert("RGB")
-    img.thumbnail((_DISPLAY_W, _DISPLAY_H), Image.LANCZOS)
-
-    out = io.BytesIO()
-    img.save(out, format="BMP")
-    return out.getvalue(), f"{safe_stem}.bmp"
+    out = _to_lvgl_bin(img, _DISPLAY_W, _DISPLAY_H)
+    return out, f"{safe_stem}.bin"
 
 
 def save_image(file_bytes: bytes, filename: str) -> Path:
@@ -90,7 +132,7 @@ async def upload_to_device(local_path: Path, remote_path: str, device_ip: str) -
     is_audio   = remote_path.startswith("/mp3/")
     endpoint   = "audio" if is_audio else "image"
     url        = f"http://{device_ip}/upload/{endpoint}"
-    mime       = "audio/mpeg" if is_audio else "image/bmp"
+    mime       = "audio/mpeg" if is_audio else "application/octet-stream"
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:

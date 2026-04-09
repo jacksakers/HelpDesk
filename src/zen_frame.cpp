@@ -202,3 +202,21 @@ void handleZenFrame(unsigned long now_ms)
         show_current();
     }
 }
+
+void zenFrameRescan(void)
+{
+    /* Remember how many images were present before the rescan. */
+    int old_count = s_file_count;
+    scan_images();
+
+    /* Clamp index in case the playlist shrank. */
+    if (s_file_count > 0 && s_current_idx >= s_file_count) {
+        s_current_idx = 0;
+    }
+    /* If we just got our first image(s), start from the beginning. */
+    if (old_count == 0 && s_file_count > 0) {
+        s_current_idx = 0;
+        s_last_change = millis();
+    }
+    show_current();
+}

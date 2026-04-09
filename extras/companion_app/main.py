@@ -72,6 +72,10 @@ _manager = _ConnectionManager()
 # so they see device state even if they opened after the hello was received.
 _last_device_info: dict | None = None
 
+# Track the active screen reported by the device so telemetry is only sent
+# when the PC Monitor screen is visible (avoids flooding the serial link).
+_current_screen: str = ""
+
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
@@ -190,10 +194,13 @@ async def update_settings(body: _SettingsBody):
 # ── Background telemetry task ────────────────────────────────────────────────
 
 async def _telemetry_loop() -> None:
-    """Pushes PC metrics to the HelpDesk every 5 seconds over serial."""
+    """Pushes PC metrics to the HelpDesk every 5 seconds over serial.
+    Only sends when the device is showing the PC Monitor screen to avoid
+    flooding the serial link when the data isn't being displayed.
+    """
     while True:
         await asyncio.sleep(5)
-        if serial_comm.is_connected():
+        if serial_comm.is_connected() and _current_screen == "pc_monitor":
             data = telemetry.get()
             serial_comm.send(f'{{"c":{data["cpu"]},"r":{data["ram"]}}}\n')
 
@@ -202,7 +209,7 @@ async def _telemetry_loop() -> None:
 
 async def _on_serial_event(data: dict) -> None:
     """Routes JSON events received from the ESP32 to the right handler."""
-    global _last_device_info
+    global _last_device_info, _current_screen
     event = data.get("event")
 
     if event == "raw_line":
@@ -241,6 +248,7 @@ async def _on_serial_event(data: dict) -> None:
     if event == "status":
         screen  = data.get("screen", "")
         sd_used = data.get("sd_used_mb", 0)
+        _current_screen = screen
         logging.info(f"[RX] device status — screen={screen}  sd_used={sd_used} MB")
         await _manager.broadcast({
             "type":       "device_status",

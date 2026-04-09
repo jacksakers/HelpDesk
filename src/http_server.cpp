@@ -13,6 +13,7 @@
 #include "sd_utils.h"
 #include "sd_card.h"
 #include "settings.h"
+#include "zen_frame.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -77,6 +78,10 @@ static void handle_upload_done()
        evaluates to false, which would always trigger the 500 path. */
     if (s_upload_ok) {
         Serial.printf("[HTTP] Upload complete: %s\n", s_upload_filepath);
+        /* Refresh ZenFrame playlist after a new image lands on the SD card. */
+        if (s_upload_target_dir && strcmp(s_upload_target_dir, "/images") == 0) {
+            zenFrameRescan();
+        }
         s_server.send(200, "application/json", "{\"ok\":true}");
     } else {
         s_server.send(500, "application/json", "{\"error\":\"write_failed\"}");

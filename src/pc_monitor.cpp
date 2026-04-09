@@ -111,6 +111,9 @@ void handlePcMonitor(unsigned long now_ms)
                 s_line[s_pos] = '\0';
                 s_pos = 0;
 
+                /* Feed every received line to the on-screen serial log first,
+                   then dispatch the parsed content to the metric bars. */
+                pcMonitorLogLine(s_line);
                 process_line(s_line);
 
                 /* Any valid JSON line from the companion counts as "connected". */
