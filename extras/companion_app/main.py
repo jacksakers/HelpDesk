@@ -68,6 +68,10 @@ class _ConnectionManager:
 
 _manager = _ConnectionManager()
 
+# Last known device_info payload — sent to new dashboard clients on connect
+# so they see device state even if they opened after the hello was received.
+_last_device_info: dict | None = None
+
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
@@ -80,6 +84,13 @@ async def serve_dashboard():
 async def websocket_endpoint(websocket: WebSocket):
     """Streams live telemetry to the dashboard client."""
     await _manager.connect(websocket)
+    # Send cached device info immediately so a newly-opened dashboard
+    # sees the device card without waiting for the next hello/status event.
+    if _last_device_info:
+        try:
+            await websocket.send_json(_last_device_info)
+        except Exception:
+            pass
     try:
         while True:
             data = telemetry.get()
@@ -191,6 +202,7 @@ async def _telemetry_loop() -> None:
 
 async def _on_serial_event(data: dict) -> None:
     """Routes JSON events received from the ESP32 to the right handler."""
+    global _last_device_info
     event = data.get("event")
 
     if event == "raw_line":
@@ -205,11 +217,15 @@ async def _on_serial_event(data: dict) -> None:
         ssid = data.get("ssid", "")
         fw   = data.get("fw", "")
         sd   = "ok" if data.get("sd_ok") else "missing"
+        # If the device hasn't got a WiFi address yet, fall back to the
+        # manually-saved IP so the dashboard card shows something useful.
+        if not ip or ip == "0.0.0.0":
+            ip = settings_store.get("device_ip", "") or ip
         logging.info(f"[RX] device hello — ip={ip}  ssid={ssid}  fw={fw}  sd={sd}")
         if ip and ip != "0.0.0.0" and not settings_store.get("device_ip"):
             settings_store.save({"device_ip": ip})
             logging.info(f"[Handshake] Auto-saved device IP: {ip}")
-        await _manager.broadcast({
+        _last_device_info = {
             "type":         "device_info",
             "ip":           ip,
             "ssid":         ssid,
@@ -217,7 +233,8 @@ async def _on_serial_event(data: dict) -> None:
             "sd_ok":        data.get("sd_ok", False),
             "sd_total_mb":  data.get("sd_total_mb", 0),
             "sd_used_mb":   data.get("sd_used_mb", 0),
-        })
+        }
+        await _manager.broadcast(_last_device_info)
         await _manager.broadcast({"type": "serial_log", "label": f"hello — ip:{ip}  fw:{fw}  sd:{sd}"})
         return
 

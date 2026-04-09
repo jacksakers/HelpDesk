@@ -26,6 +26,7 @@ static WebServer s_server(80);
 static const char * s_upload_target_dir = nullptr;
 static File         s_upload_file;
 static char         s_upload_filepath[96];
+static bool         s_upload_ok = false;   // true only when the SD file opened successfully
 
 // ── Path validation ───────────────────────────────────────────────────────────
 
@@ -72,12 +73,15 @@ static void handle_status()
 /* Called ONCE after the multipart upload finishes — send the response. */
 static void handle_upload_done()
 {
-    if (s_upload_file) {
+    /* Use s_upload_ok rather than s_upload_file: after close() the File object
+       evaluates to false, which would always trigger the 500 path. */
+    if (s_upload_ok) {
         Serial.printf("[HTTP] Upload complete: %s\n", s_upload_filepath);
         s_server.send(200, "application/json", "{\"ok\":true}");
     } else {
         s_server.send(500, "application/json", "{\"error\":\"write_failed\"}");
     }
+    s_upload_ok         = false;
     s_upload_target_dir = nullptr;
 }
 
@@ -89,6 +93,7 @@ static void handle_file_upload()
     HTTPUpload & upload = s_server.upload();
 
     if (upload.status == UPLOAD_FILE_START) {
+        s_upload_ok = false;   /* Reset for each new upload */
         /* Determine destination directory from the URI that matched. */
         s_upload_target_dir = s_server.uri().indexOf("image") >= 0 ? "/images" : "/mp3";
         sdEnsureDir(s_upload_target_dir);
@@ -104,6 +109,7 @@ static void handle_file_upload()
         if (!s_upload_file) {
             Serial.printf("[HTTP] Upload: could not open %s\n", s_upload_filepath);
         } else {
+            s_upload_ok = true;
             Serial.printf("[HTTP] Upload start: %s\n", s_upload_filepath);
         }
 
