@@ -1,0 +1,59 @@
+Feature Design: HelpDesk LoRa Chat Service
+
+1. Concept Overview
+
+The HelpDesk will gain a new app in its "App Drawer" called DeskChat. It will utilize the drop-in SX1262 LoRa module to send and receive text messages in a local peer-to-peer fashion without Wi-Fi.
+
+2. Hardware & Wiring (The SX1262 Drop-in)
+
+The Elecrow 3.5" board provides a dedicated header. When soldering your drop-in module, these are the critical pins the ESP32 needs to communicate with the SX1262:
+
+SPI Bus: MOSI, MISO, SCK (Used to send the actual data).
+
+NSS / CS (Chip Select): Tells the SPI bus we are talking specifically to the LoRa chip.
+
+RESET: Used to reboot the radio.
+
+BUSY: The SX1262's way of saying "Hold on, I'm thinking."
+
+DIO1 (Crucial!): This is the Interrupt Pin. It triggers a high voltage the exact millisecond a message arrives over the air.
+
+3. Software Architecture (Non-Blocking)
+
+The HelpDesk's ESP32 is already busy drawing the screen and checking for touch. We cannot use a "blocking" radio function (where the code pauses to listen for radio waves) because the screen would freeze.
+
+The Solution: Hardware Interrupts
+
+We will use the RadioLib C++ library. It is the gold standard for the SX1262.
+
+We will attach an interrupt to the DIO1 pin: attachInterrupt(DIO1_PIN, setFlag, RISING);
+
+When DIO1 goes high (a message arrived), it sets a boolean flag messageReceived = true.
+
+Inside your main loop(), you check if(messageReceived). If true, you read the message, push it to the LVGL text area, and set the flag back to false. This keeps your UI buttery smooth!
+
+4. UI Design (LVGL "DeskChat" App)
+
+When the user taps the "DeskChat" icon, the state machine switches to the Chat UI.
+
+Message Log (Top 60%): An lv_textarea or an lv_list that acts as the chat history. It auto-scrolls to the bottom when a new message is added.
+
+Input Box (Middle 10%): A single-line lv_textarea for the user to type into.
+
+Keyboard (Bottom 30%): An lv_keyboard widget. LVGL has a built-in QWERTY keyboard that automatically links to the Input Box!
+
+Send Button: When tapped, the ESP32 takes the string from the Input Box, passes it to the SX1262, and transmits it into the ether.
+
+5. LoRa Radio Settings (The "Secret Handshake")
+
+To ensure the HelpDesk and the Heltec board can talk, they MUST share these exact settings in the code:
+
+Frequency: 915.0 MHz
+
+Bandwidth: 125.0 kHz
+
+Spreading Factor (SF): 9 (A good balance of speed and range).
+
+Coding Rate (CR): 4/7
+
+Sync Word: 0x12 (A standard private network sync word so you ignore other random LoRa noise).
