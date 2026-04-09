@@ -5,9 +5,10 @@
 
 #include "pc_monitor.h"
 #include "handshake.h"
-#include "ui_Screen7.h"
+#include "ui.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <lvgl.h>
 
 // ── Constants ────────────────────────────────────────────────────────────────
 #define PC_MONITOR_TIMEOUT_MS  6000UL   // Show "Disconnected" after 6 s without data
