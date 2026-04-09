@@ -98,11 +98,12 @@ void loop()
     // Advance non-blocking multi-note buzzer sequences
     buzzerLoop();
 
+    unsigned long now = millis();
+
     // // ── Tick watchdog: print every 5 s so we know lv_timer_handler is running
     // static unsigned long last_tick_log = 0;
     // static uint32_t handler_calls = 0;
     // handler_calls++;
-    // unsigned long now = millis();
     // if(now - last_tick_log >= 5000UL) {
     //     Serial.printf("[loop] calls=%lu  lv_tick=%lu ms  heap=%u  psram=%u\n",
     //                   handler_calls, lv_tick_get(),
