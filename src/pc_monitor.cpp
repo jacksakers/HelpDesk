@@ -80,15 +80,21 @@ static void process_line(const char * json)
     }
 
     /* --- Companion telemetry packet: {"c":<cpu>,"r":<ram>} --- */
-    int cpu = doc["c"] | -1;
-    int ram = doc["r"] | -1;
+    /* ArduinoJson v7: operator| does not coerce types; psutil sends floats
+       (e.g. 38.1), so use float defaults and cast to int for the bar API. */
+    float cpu_f = doc["c"] | -1.0f;
+    float ram_f = doc["r"] | -1.0f;
 
-    if (cpu >= 0 && cpu <= 100) set_bar(ui_CpuBar, ui_CpuLabel, cpu, NULL);
-    if (ram >= 0 && ram <= 100) set_bar(ui_RamBar, ui_RamLabel, ram, NULL);
+    int cpu = (int)cpu_f;
+    int ram = (int)ram_f;
+
+    if (cpu_f >= 0.0f && cpu_f <= 100.0f) set_bar(ui_CpuBar, ui_CpuLabel, cpu, NULL);
+    if (ram_f >= 0.0f && ram_f <= 100.0f) set_bar(ui_RamBar, ui_RamLabel, ram, NULL);
 
     /* GPU bar — optional key "g"; companion app can add it later */
-    int gpu = doc["g"] | -1;
-    if (gpu >= 0 && gpu <= 100) set_bar(ui_GpuBar, ui_GpuLabel, gpu, NULL);
+    float gpu_f = doc["g"] | -1.0f;
+    int   gpu   = (int)gpu_f;
+    if (gpu_f >= 0.0f && gpu_f <= 100.0f) set_bar(ui_GpuBar, ui_GpuLabel, gpu, NULL);
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
