@@ -15,8 +15,9 @@ void ui_Screen6_screen_init(void);
 void ui_Screen6_screen_destroy(void);
 extern lv_obj_t * ui_Screen6;
 
-/* Widget handle to swap the displayed image */
+/* Widget handles for the image and the no-image placeholder */
 extern lv_obj_t * ui_ZenImage;
+extern lv_obj_t * ui_ZenPlaceholder;
 
 #ifdef __cplusplus
 } /*extern "C"*/

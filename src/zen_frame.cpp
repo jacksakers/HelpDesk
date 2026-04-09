@@ -155,9 +155,15 @@ static void show_current(void)
     if (!ui_ZenImage) return;
 
     if (s_file_count == 0) {
-        /* No images found — leave the placeholder label visible */
+        /* No images — show placeholder, hide image widget */
+        lv_obj_remove_flag(ui_ZenImage, LV_OBJ_FLAG_HIDDEN);
+        lv_image_set_src(ui_ZenImage, (const void *)NULL);
+        if (ui_ZenPlaceholder) lv_obj_remove_flag(ui_ZenPlaceholder, LV_OBJ_FLAG_HIDDEN);
         return;
     }
+
+    /* Hide placeholder while an image is displayed */
+    if (ui_ZenPlaceholder) lv_obj_add_flag(ui_ZenPlaceholder, LV_OBJ_FLAG_HIDDEN);
 
     if (!load_image(s_current_idx)) return;
 

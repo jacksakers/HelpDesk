@@ -24,8 +24,9 @@
 #define IMG_H        (SCREEN_H - HDR_H)
 
 /* ── Public objects ────────────────────────────────────────── */
-lv_obj_t * ui_Screen6  = NULL;
-lv_obj_t * ui_ZenImage = NULL;
+lv_obj_t * ui_Screen6       = NULL;
+lv_obj_t * ui_ZenImage      = NULL;
+lv_obj_t * ui_ZenPlaceholder = NULL;
 
 /* ── Event callbacks ───────────────────────────────────────── */
 static void back_to_launcher_ev(lv_event_t * e)
@@ -99,6 +100,7 @@ static void build_body(lv_obj_t * scr)
 
     /* Placeholder shown when /images is empty or SD not mounted */
     lv_obj_t * placeholder = lv_label_create(canvas);
+    ui_ZenPlaceholder = placeholder;
     lv_label_set_text(placeholder,
                       LV_SYMBOL_IMAGE "\n\nAdd LVGL .bin images to\n/images on SD card\n\n"
                       "Convert at lvgl.io/tools/imageconverter\n"
@@ -108,6 +110,8 @@ static void build_body(lv_obj_t * scr)
     lv_label_set_long_mode(placeholder, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(placeholder, IMG_W - 40);
     lv_obj_center(placeholder);
+    /* Hidden by default; zen_frame reveals it only when no images exist */
+    lv_obj_add_flag(placeholder, LV_OBJ_FLAG_HIDDEN);
 
     /* Subtle hint at the bottom of the image area */
     lv_obj_t * hint = lv_label_create(scr);
@@ -141,7 +145,8 @@ void ui_Screen6_screen_init(void)
 
 void ui_Screen6_screen_destroy(void)
 {
-    ui_ZenImage = NULL;
+    ui_ZenImage       = NULL;
+    ui_ZenPlaceholder = NULL;
     if(ui_Screen6) lv_obj_delete(ui_Screen6);
     ui_Screen6 = NULL;
 }
