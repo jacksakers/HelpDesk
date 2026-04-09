@@ -4,9 +4,10 @@
 // Depends  : pomo_timer.h, ui_Screen3.h, buzzer.h
 
 #include "pomo_timer.h"
-#include "ui_Screen3.h"
+#include "ui.h"
 #include "buzzer.h"
 #include <Arduino.h>
+#include <lvgl.h>
 
 // ─── Phase ────────────────────────────────────────────────────────────────────
 typedef enum {
