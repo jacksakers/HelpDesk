@@ -20,6 +20,7 @@ import telemetry
 import macros
 import media_manager
 import settings_store
+import notifications
 
 # ── Input validation constants ───────────────────────────────────────────────
 _VALID_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".gif"}
@@ -272,6 +273,16 @@ async def _on_serial_event(data: dict) -> None:
         })
 
 
+async def _on_notification_received(app_name: str, title: str, body: str) -> None:
+    """Forwards a notification event to all connected dashboard WebSocket clients."""
+    await _manager.broadcast({
+        "type":  "notification",
+        "app":   app_name,
+        "title": title,
+        "body":  body,
+    })
+
+
 async def _on_connect_change(connected: bool) -> None:
     """Notifies the dashboard when the HelpDesk serial connection changes."""
     status = "connected" if connected else "disconnected"
@@ -287,10 +298,13 @@ async def startup_event():
     asyncio.create_task(serial_comm.listener(_on_serial_event, _on_connect_change))
     asyncio.create_task(serial_comm.timesync_loop())
     asyncio.create_task(_telemetry_loop())
+    notifications.set_broadcast_callback(_on_notification_received)
+    await notifications.start()
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    notifications.stop()
     serial_comm.disconnect()
 
 

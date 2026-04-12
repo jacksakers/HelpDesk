@@ -5,6 +5,7 @@
 
 #include "ui.h"
 #include "handshake.h"
+#include "notifications.h"
 
 /* ── Layout constants ──────────────────────────────────────── */
 #define SCREEN_W       480
@@ -34,7 +35,7 @@ typedef struct {
 static const app_tile_t k_apps[] = {
     { LV_SYMBOL_HOME    "\nDeskDash",   0x2196F3, &ui_Screen2, ui_Screen2_screen_init },
     { LV_SYMBOL_PAUSE   "\nTomatimer",  0xF44336, &ui_Screen3, ui_Screen3_screen_init },
-    { LV_SYMBOL_AUDIO   "\nJukeDesk",   0x9C27B0, &ui_Screen4, ui_Screen4_screen_init },
+    { LV_SYMBOL_BELL    "\nNotifs",     0xFF5722, &ui_Screen4, ui_Screen4_screen_init },
     { LV_SYMBOL_LIST    "\nTaskMaster", 0x4CAF50, &ui_Screen5, ui_Screen5_screen_init },
     { LV_SYMBOL_IMAGE   "\nZenFrame",   0x009688, &ui_Screen6, ui_Screen6_screen_init },
     { LV_SYMBOL_USB     "\nPCMonitor",  0xFF9800, &ui_Screen7, ui_Screen7_screen_init },
@@ -43,7 +44,9 @@ static const app_tile_t k_apps[] = {
 #define APP_COUNT  (sizeof(k_apps) / sizeof(k_apps[0]))
 
 /* ── Public screen object ──────────────────────────────────── */
-lv_obj_t * ui_Screen1 = NULL;
+lv_obj_t * ui_Screen1    = NULL;
+lv_obj_t * ui_NotifTile  = NULL;   /* Notifications tile — flashed by notifications.cpp */
+lv_obj_t * ui_NotifBadge = NULL;   /* Unread count badge on that tile */
 
 /* ── Event callbacks ───────────────────────────────────────── */
 static void tile_clicked_ev(lv_event_t * e)
@@ -96,7 +99,10 @@ static void build_header(lv_obj_t * scr)
     lv_obj_center(gear_ico);
 }
 
-static void build_one_tile(lv_obj_t * scr, uint8_t idx)
+/* The index of the Notifications tile in k_apps (used to attach the badge). */
+#define NOTIF_TILE_IDX  2
+
+static lv_obj_t * build_one_tile(lv_obj_t * scr, uint8_t idx)
 {
     const app_tile_t * app = &k_apps[idx];
     int col = idx % TILES_PER_ROW;
@@ -129,12 +135,32 @@ static void build_one_tile(lv_obj_t * scr, uint8_t idx)
 
     lv_obj_add_event_cb(tile, tile_clicked_ev, LV_EVENT_CLICKED,
                         (void *)(uintptr_t)idx);
+    return tile;
 }
 
 static void build_tile_grid(lv_obj_t * scr)
 {
     for(uint8_t i = 0; i < APP_COUNT; i++) {
-        build_one_tile(scr, i);
+        lv_obj_t * tile = build_one_tile(scr, i);
+
+        if (i == NOTIF_TILE_IDX) {
+            /* Store the tile so notifications.cpp can flash it */
+            ui_NotifTile = tile;
+
+            /* Small badge: red circle in the top-right corner showing unread count */
+            lv_obj_t * badge = lv_label_create(tile);
+            lv_label_set_text(badge, "0");
+            lv_obj_set_style_bg_color(badge, lv_color_hex(0xD32F2F), 0);
+            lv_obj_set_style_bg_opa(badge, LV_OPA_COVER, 0);
+            lv_obj_set_style_text_color(badge, lv_color_white(), 0);
+            lv_obj_set_style_text_font(badge, &lv_font_montserrat_10, 0);
+            lv_obj_set_style_radius(badge, LV_RADIUS_CIRCLE, 0);
+            lv_obj_set_style_pad_hor(badge, 4, 0);
+            lv_obj_set_style_pad_ver(badge, 2, 0);
+            lv_obj_align(badge, LV_ALIGN_TOP_RIGHT, -2, 2);
+            lv_obj_add_flag(badge, LV_OBJ_FLAG_HIDDEN);  /* hidden until unread > 0 */
+            ui_NotifBadge = badge;
+        }
     }
 }
 
@@ -157,6 +183,8 @@ void ui_Screen1_screen_init(void)
 
 void ui_Screen1_screen_destroy(void)
 {
+    ui_NotifTile  = NULL;
+    ui_NotifBadge = NULL;
     if(ui_Screen1) lv_obj_delete(ui_Screen1);
     ui_Screen1 = NULL;
 }

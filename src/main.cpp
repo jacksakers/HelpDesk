@@ -19,6 +19,7 @@
 #include "http_server.h"
 #include "pc_monitor.h"
 #include "handshake.h"
+#include "notifications.h"
 
 // ─── Update intervals ──────────────────────────────────────────────────────────
 #define NTP_SYNC_INTERVAL_MS     600000UL   // 10 minutes
@@ -79,6 +80,7 @@ void setup()
     initNTP();
     initPomoTimer();
     initPcMonitor();
+    notifInit();
 
     // 5. HTTP server and handshake -- must start after WiFi
     if (WiFi.status() == WL_CONNECTED) {
@@ -118,6 +120,7 @@ void loop()
     handleZenFrame(now);
     handlePcMonitor(now);
     handleHandshake(now);
+    handleNotifications(now);
     httpServerLoop();
 
     // 5 ms yield keeps the LVGL timer accurate without blocking touch input

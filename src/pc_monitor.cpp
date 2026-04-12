@@ -5,6 +5,7 @@
 
 #include "pc_monitor.h"
 #include "handshake.h"
+#include "notifications.h"
 #include "settings.h"
 #include "ui.h"
 #include <Arduino.h>
@@ -58,9 +59,21 @@ static void process_line(const char * json)
 
     /* --- Dispatch named events from the companion app --- */
     const char * event = doc["event"] | "";
+    const char * cmd   = doc["cmd"]   | "";
+
+    /* {"cmd":"notif","app":"...","title":"...","body":"..."} — from notifications.py */
+    if (strcmp(cmd, "notif") == 0) {
+        const char * app   = doc["app"]   | "";
+        const char * title = doc["title"] | "";
+        const char * body  = doc["body"]  | "";
+        if (app[0] != '\0' && title[0] != '\0') {
+            notifAdd(app, title, body);
+        }
+        return;
+    }
+
     if (event[0] != '\0') {
-        if (strcmp(event, "host_hello") == 0) {
-            /* Companion just connected — reply with our full device info. */
+        if (strcmp(event, "host_hello") == 0) {            /* Companion just connected — reply with our full device info. */
             Serial.println("[Handshake] host_hello received; sending hello.");
             handshakeSendHello();
         }

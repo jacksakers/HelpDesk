@@ -1,0 +1,88 @@
+Feature Design: Windows OS Notification Hooking
+
+1. Concept Overview
+
+The Companion App will utilize the official Windows SDK for Python (winsdk) to actively monitor the Windows Action Center (the notification panel in the bottom right corner of the screen). When a notification arrives from a targeted application (like Chrome, Edge, Slack, or Teams), the app will intercept it, extract the text, and forward it to the HelpDesk over USB Serial.
+
+2. Core Requirements & Setup
+
+Operating System: Windows 10 or Windows 11.
+
+Python Library: winsdk (Install via pip install winsdk).
+
+OS Permissions: Windows treats notifications as sensitive user data. For this to work, you must manually go to Windows Settings -> Privacy & Security -> Notifications, and turn on "Allow apps to access your notifications". The Python script will also programmatically request access on its first run.
+
+3. Architecture & Data Flow
+
+A. The Listener
+
+The Python script will instantiate a UserNotificationListener. This is an asynchronous Windows runtime object. We will attach an event handler to its NotificationChanged event. This means our code stays completely idle until Windows actively taps it on the shoulder to say, "Hey, a new notification just popped up."
+
+B. The Parser
+
+When the event fires, Windows provides a UserNotification object. The parser must do the following:
+
+Extract App Name: Identify which app sent the notification (e.g., "Google Chrome", "Microsoft Teams").
+
+Extract Content: Dig into the XML payload of the notification to pull out:
+
+Title: Usually the sender's name (e.g., "Alice Smith").
+
+Body: The actual message text (e.g., "Are we still on for the 3 PM meeting?").
+
+C. The Filter Engine
+
+We do not want to send every Windows notification to the HelpDesk (e.g., "Windows Defender updated" or "Spotify playing next track").
+
+The Python app will have a configurable ALLOWED_APPS list (e.g., ["Chrome", "Slack", "Discord"]).
+
+If the incoming notification's app name doesn't match the allowed list, it is ignored.
+
+D. The Serial Dispatcher
+
+If the notification passes the filter, it is packed into a minimalist JSON payload and pushed to the ESP32.
+
+Data Payload Format:
+
+{
+  "cmd": "notif",
+  "app": "slack",
+  "title": "Alice Smith",
+  "body": "Are we still on for the..."
+}
+
+
+(Note: The body text will be truncated to ~50 characters by Python before sending, to prevent buffer overflows on the ESP32 and to ensure it fits nicely on the 3.5" screen).
+
+4. Implementation Details (Python Snippet Logic)
+
+Implementing winsdk requires dealing with asynchronous Windows Runtime (WinRT) calls. The architecture inside the Companion App will look like this:
+
+Request Access: listener = UserNotificationListener.get_current()
+access_status = await listener.request_access_async()
+
+Subscribe: listener.add_notification_changed(my_handler_function)
+
+The Handler Function:
+
+def my_handler_function(listener, event_args):
+    # 1. Get the notification by ID
+    notif = listener.get_notification(event_args.user_notification_id)
+
+    # 2. Extract app name
+    app_name = notif.app_info.display_info.display_name
+
+    # 3. Extract text strings from the notification bindings
+    text_elements = notif.notification.visual.get_binding(KnownNotificationBindings.get_toast_generic()).get_text_elements()
+
+    title = text_elements[0].text if len(text_elements) > 0 else "Notification"
+    body = text_elements[1].text if len(text_elements) > 1 else ""
+
+    # 4. Filter and Send to Serial Buffer...
+
+
+5. Limitations & Edge Cases to Handle
+
+Browser Grouping: If you use Gmail or Google Chat inside Chrome, the app_name will show up as "Google Chrome" or "Microsoft Edge", not "Gmail". The filter engine will need to look at the title or body to distinguish work emails from random website notifications.
+
+Cleared Notifications: The NotificationChanged event fires when a notification is added, but also when it is removed/cleared. The code must specifically check that the change type is Added so it doesn't send duplicate alerts to the HelpDesk when you dismiss them on your PC.

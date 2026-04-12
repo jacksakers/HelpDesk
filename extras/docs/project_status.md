@@ -93,38 +93,38 @@ HelpDesk/
 
 ## Screens (SquareLine Studio)
 
-| Screen | Name     | Purpose                    | Status       |
-|--------|----------|----------------------------|--------------|
-| 1      | Launcher | Home/app drawer            | Implemented  |
-| 2      | DeskDash | Clock + weather display    | Implemented  |
-| 3      | Tomatimer| Pomodoro timer             | Implemented  |
-| 6      | ZenFrame | Digital photo frame        | Implemented  |
-| 9      | Settings | Sound mute + tone style    | Implemented  |
-| 4      | unknown  | TBD                        | Placeholder  |
-| 5      | unknown  | TBD                        | Placeholder  |
-| 6      | unknown  | TBD                        | Placeholder  |
-| 7      | unknown  | TBD                        | Placeholder  |
-| 8      | unknown  | TBD                        | Placeholder  |
+| Screen | Name          | Purpose                         | Status       |
+|--------|---------------|---------------------------------|--------------|
+| 1      | Launcher      | Home/app drawer                 | Implemented  |
+| 2      | DeskDash      | Clock + weather display         | Implemented  |
+| 3      | Tomatimer     | Pomodoro timer                  | Implemented  |
+| 4      | Notifications | Grouped sender list (companion) | Implemented  |
+| 6      | ZenFrame      | Digital photo frame             | Implemented  |
+| 9      | Settings      | Sound mute + tone style         | Implemented  |
+| 5      | TaskMaster    | To-do list                      | Placeholder  |
+| 7      | PCMonitor     | Live PC metrics via UART        | Implemented  |
+| 8      | GameBreak     | Mini games                      | Placeholder  |
 
 ---
 
 ## Feature Modules (Planned)
 
-| Module      | Init function      | Loop function           | Status      |
-|-------------|--------------------|-------------------------|-------------|
-| Display     | initDisplay()      | (in flush callback)     | ✓ Working   |
-| Touch Input | (in LovyanGFX)     | (in touch_read cb)      | ✓ Working   |
-| WiFi        | connectToWiFi()    | —                       | ✓ Working   |
-| Buzzer      | buzzerInit()       | buzzerLoop()            | ✓ Working   |
-| SD Card     | sdCardInit()       | —                       | ✓ Working   |
-| Settings    | settingsInit()     | —                       | ✓ Working   |
-| NTP Time    | initNTP()          | handleTimeUpdate()      | ✓ Wired      |
-| Weather     | getWeatherData()   | handleWeatherUpdate()   | ✓ Wired (needs API key) |
-| ZenFrame    | zenFrameInit()     | handleZenFrame()        | ✓ Working   |
-| Music       | audioInit()        | audioLoop()             | Not wired   |
-| Alarm       | initAlarmClock()   | handleAlarmClock()      | Not wired   |
-| PC Monitor  | pcMonitorInit()    | handlePcMonitor()       | Not started |
-| Tomatimer   | initPomoTimer()    | handlePomoTimer()       | ✓ Wired      |
+| Module        | Init function        | Loop function            | Status           |
+|---------------|----------------------|--------------------------|------------------|
+| Display       | initDisplay()        | (in flush callback)      | ✓ Working        |
+| Touch Input   | (in LovyanGFX)       | (in touch_read cb)       | ✓ Working        |
+| WiFi          | connectToWiFi()      | —                        | ✓ Working        |
+| Buzzer        | buzzerInit()         | buzzerLoop()             | ✓ Working        |
+| SD Card       | sdCardInit()         | —                        | ✓ Working        |
+| Settings      | settingsInit()       | —                        | ✓ Working        |
+| NTP Time      | initNTP()            | handleTimeUpdate()       | ✓ Wired          |
+| Weather       | getWeatherData()     | handleWeatherUpdate()    | ✓ Wired (needs API key) |
+| ZenFrame      | zenFrameInit()       | handleZenFrame()         | ✓ Working        |
+| Notifications | notifInit()          | handleNotifications()    | ✓ Wired          |
+| Music         | audioInit()          | audioLoop()              | Not wired        |
+| Alarm         | initAlarmClock()     | handleAlarmClock()       | Not wired        |
+| PC Monitor    | initPcMonitor()      | handlePcMonitor()        | ✓ Wired          |
+| Tomatimer     | initPomoTimer()      | handlePomoTimer()        | ✓ Wired          |
 
 ---
 

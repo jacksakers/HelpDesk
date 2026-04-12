@@ -1,7 +1,7 @@
 // Project  : HelpDesk
 // File     : ui_Screen4.h
-// Purpose  : JukeDesk screen — public interface
-// Depends  : ui.h (LVGL 8.3.11)
+// Purpose  : Notifications screen — public interface
+// Depends  : ui.h (LVGL 9.x)
 
 #ifndef UI_SCREEN4_H
 #define UI_SCREEN4_H
@@ -10,15 +10,14 @@
 extern "C" {
 #endif
 
-/* SCREEN: ui_Screen4 — JukeDesk (local MP3 player) */
+/* SCREEN: ui_Screen4 — Notifications (grouped sender list from companion app) */
 void ui_Screen4_screen_init(void);
 void ui_Screen4_screen_destroy(void);
 extern lv_obj_t * ui_Screen4;
 
-/* Widget handles for the music player module */
-extern lv_obj_t * ui_SongLabel;
-extern lv_obj_t * ui_PlayPauseLabel;
-extern lv_obj_t * ui_MusicStatusLabel;
+/* List widget — rebuilt by notifications.cpp whenever the store changes.
+   NULL when Screen4 is not loaded. */
+extern lv_obj_t * ui_NotifList;
 
 #ifdef __cplusplus
 } /*extern "C"*/
