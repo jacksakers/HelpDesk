@@ -1,0 +1,22 @@
+# HelpDesk Companion App — Python dependencies
+# Install with: pip install -r requirements.txt
+
+# Core web server
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+
+# Serial communication with the ESP32
+pyserial>=3.5
+
+# PC hardware metrics (CPU / RAM)
+psutil>=5.9.0
+
+# Image processing for media uploads
+Pillow>=10.0.0
+
+# HTTP client for WiFi file transfers to the device
+httpx>=0.27.0
+
+# Windows notification listener (Windows only)
+# Remove this line if running on macOS / Linux
+winsdk>=1.0.0b10
