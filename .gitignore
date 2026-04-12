@@ -10,3 +10,5 @@ src/wifi_connect.cpp
 # pycache__
 __pycache__/
 *.pyc
+
+*.json

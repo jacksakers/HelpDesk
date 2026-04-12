@@ -4,6 +4,7 @@
 // Depends  : ui.h (LVGL 9.x)
 
 #include "ui.h"
+#include "ui_tictactoe.h"
 
 /* ── Colours ───────────────────────────────────────────────── */
 #define CLR_BG          0x1A1A2E
@@ -29,6 +30,13 @@ static void back_to_launcher_ev(lv_event_t * e)
 {
     _ui_screen_change(&ui_Screen1, LV_SCREEN_LOAD_ANIM_MOVE_RIGHT, 300, 0,
                       ui_Screen1_screen_init);
+}
+
+static void nav_tictactoe_ev(lv_event_t * e)
+{
+    (void)e;
+    _ui_screen_change(&ui_TicTacToe, LV_SCREEN_LOAD_ANIM_MOVE_LEFT, 300, 0,
+                      ui_tictactoe_screen_init);
 }
 
 /* ── Private helpers ───────────────────────────────────────── */
@@ -66,9 +74,10 @@ static void build_header(lv_obj_t * scr)
     lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
 }
 
-/* Builds a game selection button with a "Coming Soon" badge */
-static void build_game_btn(lv_obj_t * scr, const char * label,
-                            uint32_t color, int y)
+/* Builds a game button. Pass playable=true to label it ready-to-play.
+ * Returns the button object so the caller can attach a navigation callback. */
+static lv_obj_t * build_game_btn(lv_obj_t * scr, const char * label,
+                            uint32_t color, int y, bool playable)
 {
     int x = (SCREEN_W - GAME_BTN_W) / 2;
 
@@ -91,19 +100,24 @@ static void build_game_btn(lv_obj_t * scr, const char * label,
     lv_obj_align(name_lbl, LV_ALIGN_LEFT_MID, 12, 0);
 
     lv_obj_t * soon_lbl = lv_label_create(btn);
-    lv_label_set_text(soon_lbl, "Coming Soon");
-    lv_obj_set_style_text_color(soon_lbl, lv_color_hex(0xAAAAAA), 0);
+    lv_label_set_text(soon_lbl, playable ? "Tap to play" : "Coming Soon");
+    lv_obj_set_style_text_color(soon_lbl,
+        lv_color_hex(playable ? 0xAAFFAA : 0xAAAAAA), 0);
     lv_obj_align(soon_lbl, LV_ALIGN_RIGHT_MID, -12, 0);
+    return btn;
 }
 
 static void build_body(lv_obj_t * scr)
 {
-    build_game_btn(scr, LV_SYMBOL_SHUFFLE "  Tic-Tac-Toe",  CLR_TTT,
-                   FIRST_BTN_Y + 0 * (GAME_BTN_H + GAME_BTN_GAP));
+    lv_obj_t * ttt_btn =
+        build_game_btn(scr, LV_SYMBOL_SHUFFLE "  Tic-Tac-Toe",  CLR_TTT,
+                       FIRST_BTN_Y + 0 * (GAME_BTN_H + GAME_BTN_GAP), true);
+    lv_obj_add_event_cb(ttt_btn, nav_tictactoe_ev, LV_EVENT_CLICKED, NULL);
+
     build_game_btn(scr, LV_SYMBOL_LOOP    "  Slide Puzzle", CLR_SLIDE,
-                   FIRST_BTN_Y + 1 * (GAME_BTN_H + GAME_BTN_GAP));
+                   FIRST_BTN_Y + 1 * (GAME_BTN_H + GAME_BTN_GAP), false);
     build_game_btn(scr, LV_SYMBOL_BELL    "  Simon Says",   CLR_SIMON,
-                   FIRST_BTN_Y + 2 * (GAME_BTN_H + GAME_BTN_GAP));
+                   FIRST_BTN_Y + 2 * (GAME_BTN_H + GAME_BTN_GAP), false);
 
     lv_obj_t * hint = lv_label_create(scr);
     lv_label_set_text(hint, "Take a 2-minute mental break.");
