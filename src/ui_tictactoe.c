@@ -84,13 +84,80 @@ static bool board_full(void)
     return true;
 }
 
-/* Returns a random empty cell index, or -1 if none exist */
-static int ai_pick_random(void)
+/* Minimax — recursively scores all positions from the AI's perspective.
+ * AI is -1 (maximising), human is +1 (minimising).
+ * Works in-place on s_board; callers must restore the cell after the call. */
+static int minimax(bool is_ai_turn)
 {
-    int empty[9], n = 0, i;
-    for (i = 0; i < 9; i++) if (s_board[i] == 0) empty[n++] = i;
-    if (n == 0) return -1;
-    return empty[game_rand() % (uint32_t)n];
+    int w = check_winner();
+    if (w == -1) return  10;   /* AI wins  */
+    if (w ==  1) return -10;   /* Human wins */
+    if (board_full()) return 0;
+
+    int i;
+    if (is_ai_turn) {
+        int best = -100;
+        for (i = 0; i < 9; i++) {
+            if (s_board[i] == 0) {
+                s_board[i] = -1;
+                int score = minimax(false);
+                s_board[i] = 0;
+                if (score > best) best = score;
+            }
+        }
+        return best;
+    } else {
+        int best = 100;
+        for (i = 0; i < 9; i++) {
+            if (s_board[i] == 0) {
+                s_board[i] = 1;
+                int score = minimax(true);
+                s_board[i] = 0;
+                if (score < best) best = score;
+            }
+        }
+        return best;
+    }
+}
+
+/* Pick the best move for the AI.  When multiple cells share the best score,
+ * one is chosen randomly so the AI doesn't always open identically. */
+static int ai_best_move(void)
+{
+    int best_score = -100;
+    int best_moves[9], n_best = 0, i;
+
+    for (i = 0; i < 9; i++) {
+        if (s_board[i] == 0) {
+            s_board[i] = -1;
+            int score = minimax(false);
+            s_board[i] = 0;
+            if (score > best_score) {
+                best_score = score;
+                n_best = 0;
+                best_moves[n_best++] = i;
+            } else if (score == best_score) {
+                best_moves[n_best++] = i;
+            }
+        }
+    }
+    if (n_best == 0) return -1;
+    return best_moves[game_rand() % (uint32_t)n_best];
+}
+
+/* 15% of the time the AI forgets the optimal move and picks randomly.
+ * This gives the player a real chance to win without making the AI feel broken. */
+#define AI_BLUNDER_PCT  15
+
+static int ai_choose_move(void)
+{
+    if ((game_rand() % 100u) < AI_BLUNDER_PCT) {
+        /* Blunder: pick any empty cell at random */
+        int empty[9], n = 0, i;
+        for (i = 0; i < 9; i++) if (s_board[i] == 0) empty[n++] = i;
+        if (n > 0) return empty[game_rand() % (uint32_t)n];
+    }
+    return ai_best_move();
 }
 
 /* ── UI update helpers ───────────────────────────────────────── */
@@ -169,7 +236,7 @@ static void apply_mark(int idx, int8_t mark)
 
     /* In AI mode, O always plays immediately after the human's move */
     if (s_ai_mode && s_current == -1) {
-        int ai_idx = ai_pick_random();
+        int ai_idx = ai_choose_move();
         if (ai_idx >= 0) {
             s_board[ai_idx] = -1;
             update_cell_display(ai_idx);
@@ -204,7 +271,7 @@ static void start_new_game(void)
 
     if (s_ai_mode && s_current == -1) {
         /* AI goes first: place one mark immediately, then give turn to human */
-        int ai_idx = ai_pick_random();
+        int ai_idx = ai_choose_move();
         if (ai_idx >= 0) {
             s_board[ai_idx] = -1;
             update_cell_display(ai_idx);
