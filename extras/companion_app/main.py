@@ -311,8 +311,9 @@ async def shutdown_event():
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print("=======================================================")
+    print("========================================================")
     print(" Starting HelpDesk Companion App")
     print(" Dashboard will be available at: http://127.0.0.1:8000")
-    print("=======================================================")
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    print(" LAN access: http://<your-pc-ip>:8000")
+    print("========================================================")
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
