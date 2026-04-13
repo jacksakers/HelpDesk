@@ -68,18 +68,19 @@ static void build_header(lv_obj_t * scr)
 static void build_body(lv_obj_t * scr)
 {
     /* ---- Time label (centred, upper body) ---- */
-    /* TODO: enable lv_font_montserrat_28 in lv_conf.h and set font here */
     lv_obj_t * time_lbl = lv_label_create(scr);
     lv_label_set_text(time_lbl, "--:--:--");
     lv_obj_set_style_text_color(time_lbl, lv_color_white(), 0);
-    lv_obj_align(time_lbl, LV_ALIGN_TOP_MID, 0, 55);
+    lv_obj_set_style_text_font(time_lbl, &lv_font_montserrat_48, 0);
+    lv_obj_align(time_lbl, LV_ALIGN_TOP_MID, 0, 45);
     ui_TimeLabel = time_lbl;
 
     /* ---- Date label ---- */
     lv_obj_t * date_lbl = lv_label_create(scr);
     lv_label_set_text(date_lbl, "----, --- -- ----");
     lv_obj_set_style_text_color(date_lbl, lv_color_hex(CLR_SUBTLE), 0);
-    lv_obj_align(date_lbl, LV_ALIGN_TOP_MID, 0, 80);
+    lv_obj_set_style_text_font(date_lbl, &lv_font_montserrat_20, 0);
+    lv_obj_align(date_lbl, LV_ALIGN_TOP_MID, 0, 110);
     ui_DateLabel = date_lbl;
 
     /* ---- Weather panel (bottom strip) ---- */

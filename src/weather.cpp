@@ -15,6 +15,26 @@
 static unsigned long s_last_weather_ms = 0;
 #define WEATHER_INTERVAL_MS 600000UL   // 10 minutes
 
+/* Percent-encode a string for use in a URL query parameter.
+ * Letters, digits, '-', '_', '.', '~' are passed through unchanged;
+ * everything else (including spaces) is encoded as %XX. */
+static void url_encode(const char * src, char * dst, size_t dst_size)
+{
+    static const char hex[] = "0123456789ABCDEF";
+    size_t di = 0;
+    for (size_t si = 0; src[si] != '\0' && di + 4 < dst_size; si++) {
+        unsigned char c = (unsigned char)src[si];
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            dst[di++] = (char)c;
+        } else {
+            dst[di++] = '%';
+            dst[di++] = hex[c >> 4];
+            dst[di++] = hex[c & 0xF];
+        }
+    }
+    dst[di] = '\0';
+}
+
 // --- Internal fetch ----------------------------------------------------------
 void getWeatherData(void)
 {
@@ -38,10 +58,13 @@ void getWeatherData(void)
     }
 
     char url[256];
+    char city_enc[128];
+    url_encode(city, city_enc, sizeof(city_enc));
     snprintf(url, sizeof(url),
              "http://api.openweathermap.org/data/2.5/weather"
              "?q=%s&units=%s&appid=%s",
-             city, units, key);
+             city_enc, units, key);
+    Serial.printf("[Weather] Fetching: %s\n", url);
 
     HTTPClient http;
     http.begin(url);
