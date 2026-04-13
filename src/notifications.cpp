@@ -145,7 +145,7 @@ void notifRefreshScreen(void)
 
     for (int i = 0; i < s_group_count; i++) {
         char rowbuf[96];
-        snprintf(rowbuf, sizeof(rowbuf), "%s  \u00d7%d  \u2022  %s",
+        snprintf(rowbuf, sizeof(rowbuf), "%s  x%d  \u2022  %s",
                  s_groups[i].title,
                  s_groups[i].count,
                  s_groups[i].app);
