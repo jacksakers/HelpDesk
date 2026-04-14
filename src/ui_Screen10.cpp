@@ -18,7 +18,7 @@
 #define HDR_H          36
 #define INFO_BAR_H     20
 #define LIST_Y        (HDR_H + INFO_BAR_H)
-#define LIST_H        (SCREEN_H - LIST_Y)
+#define DD_LIST_H     (SCREEN_H - LIST_Y)
 
 // ── Colours ───────────────────────────────────────────────────────────────────
 #define CLR_BG        0x0F172A
@@ -35,9 +35,9 @@
 #define CLR_MUTED     0x64748B
 
 // ── Editor overlay dimensions ─────────────────────────────────────────────────
-#define EDITOR_TA_H   110                              /* textarea height          */
-#define EDITOR_KBD_Y  (HDR_H + EDITOR_TA_H)           /* y where keyboard starts  */
-#define EDITOR_KBD_H  (SCREEN_H - EDITOR_KBD_Y)       /* keyboard height = 174 px */
+/* Editor keyboard floats as an overlay at the bottom of the viewer.
+   200 px gives 4 rows at natural spacing with top/bottom padding stripped. */
+#define EDITOR_KBD_H  200
 
 // ── Per-entry storage (static, no heap per item) ──────────────────────────────
 #define MAX_ENTRIES   64
@@ -161,6 +161,20 @@ static void editor_save_ev(lv_event_t * e)
     close_viewer();
 }
 
+/* Show the keyboard overlay when the textarea gets focus (user taps the text). */
+static void editor_ta_focused_ev(lv_event_t * e)
+{
+    (void)e;
+    if (s_editor_kbd) lv_obj_remove_flag(s_editor_kbd, LV_OBJ_FLAG_HIDDEN);
+}
+
+/* Hide the keyboard — fired by the keyboard-icon (cancel) or OK button. */
+static void editor_kbd_hide_ev(lv_event_t * e)
+{
+    (void)e;
+    if (s_editor_kbd) lv_obj_add_flag(s_editor_kbd, LV_OBJ_FLAG_HIDDEN);
+}
+
 static void open_text_editor(const char * path)
 {
     if (!sdCardMounted()) return;
@@ -239,9 +253,10 @@ static void open_text_editor(const char * path)
     lv_obj_set_style_text_font(save_lbl, &lv_font_montserrat_12, 0);
     lv_obj_center(save_lbl);
 
-    /* Editable textarea */
+    /* Textarea — takes full height below the header so content stays readable
+       even when the keyboard overlay is open above the bottom half.           */
     s_editor_ta = lv_textarea_create(s_viewer_overlay);
-    lv_obj_set_size(s_editor_ta, SCREEN_W, EDITOR_TA_H);
+    lv_obj_set_size(s_editor_ta, SCREEN_W, SCREEN_H - HDR_H);
     lv_obj_set_pos(s_editor_ta, 0, HDR_H);
     lv_textarea_set_text(s_editor_ta, buf);
     lv_textarea_set_cursor_pos(s_editor_ta, 0);
@@ -250,14 +265,23 @@ static void open_text_editor(const char * path)
     lv_obj_set_style_text_font(s_editor_ta, &lv_font_montserrat_12, 0);
     lv_obj_set_style_border_width(s_editor_ta, 0, 0);
     lv_obj_set_style_pad_all(s_editor_ta, 8, 0);
+    /* Tapping the text area shows the keyboard overlay. */
+    lv_obj_add_event_cb(s_editor_ta, editor_ta_focused_ev, LV_EVENT_FOCUSED, NULL);
 
-    /* Keyboard */
+    /* Keyboard — floats over the bottom of the screen as a 200 px overlay.
+       Hidden until the user taps the textarea.  The keyboard-icon button
+       (LV_EVENT_CANCEL) and OK button (LV_EVENT_READY) both dismiss it.    */
     s_editor_kbd = lv_keyboard_create(s_viewer_overlay);
-    lv_obj_set_pos(s_editor_kbd, 0, EDITOR_KBD_Y);
     lv_obj_set_size(s_editor_kbd, SCREEN_W, EDITOR_KBD_H);
+    lv_obj_align(s_editor_kbd, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_add_flag(s_editor_kbd, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_pad_top(s_editor_kbd, 0, 0);
+    lv_obj_set_style_pad_bottom(s_editor_kbd, 0, 0);
     lv_obj_set_style_border_width(s_editor_kbd, 0, 0);
     lv_obj_set_style_shadow_width(s_editor_kbd, 0, 0);
     lv_keyboard_set_textarea(s_editor_kbd, s_editor_ta);
+    lv_obj_add_event_cb(s_editor_kbd, editor_kbd_hide_ev, LV_EVENT_READY, NULL);
+    lv_obj_add_event_cb(s_editor_kbd, editor_kbd_hide_ev, LV_EVENT_CANCEL, NULL);
     ui_kbd_apply_space_map(s_editor_kbd);
 
     free(buf);
@@ -667,7 +691,7 @@ void ui_Screen10_screen_init(void)
 
     /* File list fills the remainder of the screen */
     s_list = lv_list_create(ui_Screen10);
-    lv_obj_set_size(s_list, SCREEN_W, LIST_H);
+    lv_obj_set_size(s_list, SCREEN_W, DD_LIST_H);
     lv_obj_set_pos(s_list, 0, LIST_Y);
     lv_obj_set_style_bg_color(s_list, lv_color_hex(CLR_BG), 0);
     lv_obj_set_style_border_width(s_list, 0, 0);

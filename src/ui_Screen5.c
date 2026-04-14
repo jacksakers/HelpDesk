@@ -7,6 +7,8 @@
 #include "ui.h"
 #include "task_master.h"
 #include "voice_input.h"
+#include <string.h>
+#include <stdio.h>
 
 /* ── Colours ───────────────────────────────────────────────── */
 #define CLR_BG         0x1A1A2E
@@ -406,6 +408,10 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     s_kbd = lv_keyboard_create(s_kbd_overlay);
     lv_obj_set_pos(s_kbd, 0, 70);
     lv_obj_set_size(s_kbd, SCREEN_W, SCREEN_H - 70);
+    /* Strip only the outer top/bottom container padding so all 4 rows fit.
+       Row/column/item padding is kept so the keys have natural spacing. */
+    lv_obj_set_style_pad_top(s_kbd, 0, 0);
+    lv_obj_set_style_pad_bottom(s_kbd, 0, 0);
     lv_obj_set_style_border_width(s_kbd, 0, 0);
     lv_obj_set_style_shadow_width(s_kbd, 0, 0);
     lv_keyboard_set_textarea(s_kbd, ui_TaskInputArea);
