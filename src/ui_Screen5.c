@@ -347,8 +347,8 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     lv_obj_add_flag(s_kbd_overlay, LV_OBJ_FLAG_HIDDEN);
 
     ui_TaskInputArea = lv_textarea_create(s_kbd_overlay);
-    lv_obj_set_size(ui_TaskInputArea, 330, 36);
-    lv_obj_set_pos(ui_TaskInputArea, 4, 6);
+    lv_obj_set_size(ui_TaskInputArea, 330, 30);
+    lv_obj_set_pos(ui_TaskInputArea, 4, 4);
     lv_textarea_set_one_line(ui_TaskInputArea, true);
     lv_textarea_set_placeholder_text(ui_TaskInputArea, "What needs doing?");
     lv_obj_set_style_bg_color(ui_TaskInputArea, lv_color_hex(CLR_INPUT_BG), 0);
@@ -358,8 +358,8 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     lv_obj_set_style_radius(ui_TaskInputArea, 6, 0);
 
     lv_obj_t *cancel_btn = lv_button_create(s_kbd_overlay);
-    lv_obj_set_size(cancel_btn, 64, 36);
-    lv_obj_set_pos(cancel_btn, 338, 6);
+    lv_obj_set_size(cancel_btn, 64, 30);
+    lv_obj_set_pos(cancel_btn, 338, 4);
     lv_obj_set_style_bg_color(cancel_btn, lv_color_hex(0x442222), 0);
     lv_obj_set_style_border_width(cancel_btn, 0, 0);
     lv_obj_set_style_radius(cancel_btn, 6, 0);
@@ -371,8 +371,8 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     lv_obj_center(cancel_lbl);
 
     lv_obj_t *confirm_btn = lv_button_create(s_kbd_overlay);
-    lv_obj_set_size(confirm_btn, 64, 36);
-    lv_obj_set_pos(confirm_btn, 406, 6);
+    lv_obj_set_size(confirm_btn, 64, 30);
+    lv_obj_set_pos(confirm_btn, 406, 4);
     lv_obj_set_style_bg_color(confirm_btn, lv_color_hex(0x224422), 0);
     lv_obj_set_style_border_width(confirm_btn, 0, 0);
     lv_obj_set_style_radius(confirm_btn, 6, 0);
@@ -384,8 +384,8 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     lv_obj_center(confirm_lbl);
 
     s_repeat_btn = lv_button_create(s_kbd_overlay);
-    lv_obj_set_size(s_repeat_btn, 160, 24);
-    lv_obj_set_pos(s_repeat_btn, 4, 46);
+    lv_obj_set_size(s_repeat_btn, 160, 22);
+    lv_obj_set_pos(s_repeat_btn, 4, 38);
     lv_obj_set_style_bg_color(s_repeat_btn, lv_color_hex(0x334455), 0);
     lv_obj_set_style_border_width(s_repeat_btn, 0, 0);
     lv_obj_set_style_radius(s_repeat_btn, 6, 0);
@@ -398,8 +398,8 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     lv_obj_center(rep_lbl);
 
     s_kbd = lv_keyboard_create(s_kbd_overlay);
-    lv_obj_set_pos(s_kbd, 0, 76);
-    lv_obj_set_size(s_kbd, SCREEN_W, SCREEN_H - 76);
+    lv_obj_set_pos(s_kbd, 0, 64);
+    lv_obj_set_size(s_kbd, SCREEN_W, SCREEN_H - 64);
     lv_keyboard_set_textarea(s_kbd, ui_TaskInputArea);
     lv_obj_add_event_cb(s_kbd, kbd_ready_ev, LV_EVENT_READY, NULL);
     lv_obj_add_event_cb(s_kbd, cancel_kbd_ev, LV_EVENT_CANCEL, NULL);
