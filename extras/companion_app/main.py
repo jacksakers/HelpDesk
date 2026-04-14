@@ -371,6 +371,128 @@ async def delete_task(task_id: int):
         raise HTTPException(503, f"Could not reach device: {e}")
 
 
+# ── DeskDrive routes (proxy to HelpDesk /api/fs/* over Wi-Fi) ─────────────────
+
+def _validate_sd_path(path: str) -> str:
+    """Normalise and validate an SD card path. Rejects traversal attempts."""
+    import posixpath
+    clean = posixpath.normpath("/" + str(path).replace("\\", "/").lstrip("/"))
+    # After normpath, no component should be ".."
+    if any(part == ".." for part in clean.split("/")):
+        raise HTTPException(400, "Invalid path")
+    return clean
+
+
+@app.get("/api/drive/list")
+async def drive_list(dir: str = "/"):
+    """Lists a directory on the HelpDesk SD card. Proxies GET /api/fs/list."""
+    path = _validate_sd_path(dir)
+    base = _device_base_url()
+    if not base:
+        raise HTTPException(503, "Device IP not configured — set it in Settings.")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(f"{base}/api/fs/list", params={"dir": path})
+        if resp.status_code == 200:
+            return resp.json()
+        raise HTTPException(resp.status_code, resp.text)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(503, f"Could not reach device: {e}")
+
+
+@app.get("/api/drive/download")
+async def drive_download(path: str):
+    """Streams a file from the HelpDesk SD card. Proxies GET /api/fs/download."""
+    clean = _validate_sd_path(path)
+    base = _device_base_url()
+    if not base:
+        raise HTTPException(503, "Device IP not configured.")
+    try:
+        import httpx
+        from fastapi.responses import Response
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(f"{base}/api/fs/download", params={"path": clean})
+        if resp.status_code != 200:
+            raise HTTPException(resp.status_code, "Device returned an error.")
+        filename = clean.rsplit("/", 1)[-1] or "download"
+        mime = resp.headers.get("Content-Type", "application/octet-stream")
+        return Response(
+            content=resp.content,
+            media_type=mime,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(503, f"Could not reach device: {e}")
+
+
+@app.post("/api/drive/upload")
+async def drive_upload(dir: str = "/", file: UploadFile = File(...)):
+    """Uploads a file to a directory on the HelpDesk SD card. Proxies POST /api/fs/upload."""
+    dest_dir = _validate_sd_path(dir)
+    base = _device_base_url()
+    if not base:
+        raise HTTPException(503, "Device IP not configured.")
+    data = await file.read()
+    if len(data) > 50 * 1024 * 1024:
+        raise HTTPException(413, "File too large (50 MB max)")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                f"{base}/api/fs/upload",
+                params={"dir": dest_dir},
+                files={"file": (file.filename, data, "application/octet-stream")},
+            )
+        if resp.status_code == 200:
+            return {"ok": True, "filename": file.filename}
+        raise HTTPException(resp.status_code, resp.text)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(503, f"Could not reach device: {e}")
+
+
+@app.post("/api/drive/mkdir")
+async def drive_mkdir(body: dict):
+    """Creates a directory on the HelpDesk SD card. Proxies POST /api/fs/mkdir."""
+    raw_path = body.get("path", "")
+    path = _validate_sd_path(raw_path)
+    base = _device_base_url()
+    if not base:
+        raise HTTPException(503, "Device IP not configured.")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.post(f"{base}/api/fs/mkdir", json={"path": path})
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(503, f"Could not reach device: {e}")
+
+
+@app.post("/api/drive/delete")
+async def drive_delete(body: dict):
+    """Deletes a file or folder on the HelpDesk SD card. Proxies POST /api/fs/delete."""
+    raw_path = body.get("path", "")
+    path = _validate_sd_path(raw_path)
+    if path == "/":
+        raise HTTPException(400, "Cannot delete root")
+    base = _device_base_url()
+    if not base:
+        raise HTTPException(503, "Device IP not configured.")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.post(f"{base}/api/fs/delete", json={"path": path})
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(503, f"Could not reach device: {e}")
+
+
 # ── Voice transcription route ─────────────────────────────────────────────────
 
 _MAX_VOICE_BYTES = 2 * 1024 * 1024   # 2 MB — 3 s @ 16 kHz 16-bit is only ~96 KB

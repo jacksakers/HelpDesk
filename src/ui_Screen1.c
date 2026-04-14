@@ -33,13 +33,14 @@ typedef struct {
 } app_tile_t;
 
 static const app_tile_t k_apps[] = {
-    { LV_SYMBOL_HOME    "\nDeskDash",   0x2196F3, &ui_Screen2, ui_Screen2_screen_init },
-    { LV_SYMBOL_PAUSE   "\nTomatimer",  0xF44336, &ui_Screen3, ui_Screen3_screen_init },
-    { LV_SYMBOL_BELL    "\nNotifs",     0xFF5722, &ui_Screen4, ui_Screen4_screen_init },
-    { LV_SYMBOL_LIST    "\nTaskMaster", 0x4CAF50, &ui_Screen5, ui_Screen5_screen_init },
-    { LV_SYMBOL_IMAGE   "\nZenFrame",   0x009688, &ui_Screen6, ui_Screen6_screen_init },
-    { LV_SYMBOL_USB     "\nPCMonitor",  0xFF9800, &ui_Screen7, ui_Screen7_screen_init },
-    { LV_SYMBOL_SHUFFLE "\nGameBreak",  0xE91E63, &ui_Screen8, ui_Screen8_screen_init },
+    { LV_SYMBOL_HOME    "\nDeskDash",   0x2196F3, &ui_Screen2,  ui_Screen2_screen_init  },
+    { LV_SYMBOL_PAUSE   "\nTomatimer",  0xF44336, &ui_Screen3,  ui_Screen3_screen_init  },
+    { LV_SYMBOL_BELL    "\nNotifs",     0xFF5722, &ui_Screen4,  ui_Screen4_screen_init  },
+    { LV_SYMBOL_LIST    "\nTaskMaster", 0x4CAF50, &ui_Screen5,  ui_Screen5_screen_init  },
+    { LV_SYMBOL_IMAGE   "\nZenFrame",   0x009688, &ui_Screen6,  ui_Screen6_screen_init  },
+    { LV_SYMBOL_USB     "\nPCMonitor",  0xFF9800, &ui_Screen7,  ui_Screen7_screen_init  },
+    { LV_SYMBOL_SHUFFLE "\nGameBreak",  0xE91E63, &ui_Screen8,  ui_Screen8_screen_init  },
+    { LV_SYMBOL_DRIVE   "\nDeskDrive",  0x0077B6, &ui_Screen10, ui_Screen10_screen_init },
 };
 #define APP_COUNT  (sizeof(k_apps) / sizeof(k_apps[0]))
 

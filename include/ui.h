@@ -35,6 +35,7 @@ extern "C" {
 #include "ui_Screen7.h"   /* PCMonitor        */
 #include "ui_Screen8.h"   /* GameBreak        */
 #include "ui_Screen9.h"   /* Settings         */
+#include "ui_Screen10.h"  /* DeskDrive        */
 #include "ui_tictactoe.h" /* Tic-Tac-Toe game */
 
 /* ── Shared LVGL event object (SquareLine pattern) ─────────── */

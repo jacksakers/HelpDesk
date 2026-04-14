@@ -259,6 +259,194 @@ static void handle_tasks_delete()
     s_server.send(200, "application/json", "{\"ok\":true}");
 }
 
+// ── DeskDrive routes (/api/fs/*) ──────────────────────────────────────────────
+
+/* Validates an SD card path: must start with '/', no '..' components.
+   Returns true and writes normalised path into out if safe. */
+static bool safe_sd_path(const char * path, char * out, size_t out_sz)
+{
+    if (!path || path[0] != '/') return false;
+    /* Reject any '..' component */
+    for (const char * p = path; *p; p++) {
+        if (p[0] == '.' && p[1] == '.' && (p[2] == '/' || p[2] == '\0')) return false;
+    }
+    strncpy(out, path, out_sz - 1);
+    out[out_sz - 1] = '\0';
+    return true;
+}
+
+/* GET /api/fs/list?dir=/path — list directory as JSON array */
+static void handle_fs_list()
+{
+    if (!sdCardMounted()) {
+        s_server.send(503, "application/json", "{\"error\":\"SD not mounted\"}");
+        return;
+    }
+    char dir_path[128] = "/";
+    String dir_arg = s_server.arg("dir");
+    if (!dir_arg.isEmpty() && !safe_sd_path(dir_arg.c_str(), dir_path, sizeof(dir_path))) {
+        s_server.send(400, "application/json", "{\"error\":\"invalid path\"}");
+        return;
+    }
+
+    File dir = SD.open(dir_path);
+    if (!dir || !dir.isDirectory()) {
+        s_server.send(404, "application/json", "{\"error\":\"not a directory\"}");
+        return;
+    }
+
+    JsonDocument doc;
+    JsonArray arr = doc.to<JsonArray>();
+    dir.rewindDirectory();
+    while (true) {
+        File entry = dir.openNextFile();
+        if (!entry) break;
+        const char * name = entry.name();
+        if (!name || name[0] == '\0' || name[0] == '.') { entry.close(); continue; }
+        JsonObject o = arr.add<JsonObject>();
+        o["name"]   = name;
+        o["is_dir"] = entry.isDirectory();
+        if (!entry.isDirectory()) o["size"] = (int)entry.size();
+        entry.close();
+        if (arr.size() >= 200) break;   /* safety cap */
+    }
+    dir.close();
+
+    String out;
+    serializeJson(doc, out);
+    s_server.send(200, "application/json", out);
+}
+
+/* GET /api/fs/download?path=/file.txt — stream a file */
+static void handle_fs_download()
+{
+    if (!sdCardMounted()) {
+        s_server.send(503, "application/json", "{\"error\":\"SD not mounted\"}");
+        return;
+    }
+    char file_path[128];
+    if (!safe_sd_path(s_server.arg("path").c_str(), file_path, sizeof(file_path))) {
+        s_server.send(400, "application/json", "{\"error\":\"invalid path\"}");
+        return;
+    }
+    File f = SD.open(file_path, FILE_READ);
+    if (!f || f.isDirectory()) {
+        s_server.send(404, "application/json", "{\"error\":\"file not found\"}");
+        return;
+    }
+    /* Determine MIME type from extension */
+    const char * ext  = strrchr(file_path, '.');
+    const char * mime = "application/octet-stream";
+    if (ext) {
+        if (!strcasecmp(ext,".txt") || !strcasecmp(ext,".md") || !strcasecmp(ext,".json"))
+            mime = "text/plain";
+        else if (!strcasecmp(ext,".jpg") || !strcasecmp(ext,".jpeg")) mime = "image/jpeg";
+        else if (!strcasecmp(ext,".png"))  mime = "image/png";
+        else if (!strcasecmp(ext,".bmp"))  mime = "image/bmp";
+        else if (!strcasecmp(ext,".mp3"))  mime = "audio/mpeg";
+    }
+    s_server.streamFile(f, mime);
+    f.close();
+}
+
+/* Multipart upload handlers for POST /api/fs/upload?dir=/path */
+static void handle_fs_upload_file()
+{
+    if (!sdCardMounted()) return;
+    HTTPUpload & upload = s_server.upload();
+
+    if (upload.status == UPLOAD_FILE_START) {
+        s_upload_ok = false;
+        char dir_path[96] = "/";
+        String dir_arg = s_server.arg("dir");
+        if (!dir_arg.isEmpty()) safe_sd_path(dir_arg.c_str(), dir_path, sizeof(dir_path));
+        sdEnsureDir(dir_path);
+
+        char basename[64];
+        safe_basename(upload.filename.c_str(), basename, sizeof(basename));
+        snprintf(s_upload_filepath, sizeof(s_upload_filepath), "%s/%s", dir_path, basename);
+
+        if (SD.exists(s_upload_filepath)) SD.remove(s_upload_filepath);
+        s_upload_file = SD.open(s_upload_filepath, FILE_WRITE);
+        if (s_upload_file) {
+            s_upload_ok = true;
+            Serial.printf("[HTTP] DeskDrive upload: %s\n", s_upload_filepath);
+        }
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+        if (s_upload_file) s_upload_file.write(upload.buf, upload.currentSize);
+    } else if (upload.status == UPLOAD_FILE_END) {
+        if (s_upload_file) s_upload_file.close();
+    }
+}
+
+static void handle_fs_upload_done()
+{
+    if (s_upload_ok) {
+        zenFrameRescan();   /* refresh ZenFrame if an image landed */
+        s_server.send(200, "application/json", "{\"ok\":true}");
+    } else {
+        s_server.send(500, "application/json", "{\"error\":\"write_failed\"}");
+    }
+    s_upload_ok = false;
+}
+
+/* POST /api/fs/mkdir — body: {"path":"/newdir"} */
+static void handle_fs_mkdir()
+{
+    if (!sdCardMounted()) {
+        s_server.send(503, "application/json", "{\"error\":\"SD not mounted\"}");
+        return;
+    }
+    JsonDocument doc;
+    if (s_server.arg("plain").isEmpty() || deserializeJson(doc, s_server.arg("plain"))) {
+        s_server.send(400, "application/json", "{\"error\":\"bad json\"}");
+        return;
+    }
+    char safe_path[128];
+    const char * raw = doc["path"] | "";
+    if (!safe_sd_path(raw, safe_path, sizeof(safe_path)) || safe_path[0] == '\0') {
+        s_server.send(400, "application/json", "{\"error\":\"invalid path\"}");
+        return;
+    }
+    if (SD.exists(safe_path)) {
+        s_server.send(200, "application/json", "{\"ok\":true,\"existed\":true}");
+        return;
+    }
+    bool created = SD.mkdir(safe_path);
+    s_server.send(created ? 200 : 500, "application/json",
+                  created ? "{\"ok\":true}" : "{\"error\":\"mkdir failed\"}");
+}
+
+/* POST /api/fs/delete — body: {"path":"/file.txt"} */
+static void handle_fs_delete()
+{
+    if (!sdCardMounted()) {
+        s_server.send(503, "application/json", "{\"error\":\"SD not mounted\"}");
+        return;
+    }
+    JsonDocument doc;
+    if (s_server.arg("plain").isEmpty() || deserializeJson(doc, s_server.arg("plain"))) {
+        s_server.send(400, "application/json", "{\"error\":\"bad json\"}");
+        return;
+    }
+    char safe_path[128];
+    const char * raw = doc["path"] | "";
+    if (!safe_sd_path(raw, safe_path, sizeof(safe_path)) || strcmp(safe_path, "/") == 0) {
+        s_server.send(400, "application/json", "{\"error\":\"invalid path\"}");
+        return;
+    }
+    if (!SD.exists(safe_path)) {
+        s_server.send(404, "application/json", "{\"error\":\"not found\"}");
+        return;
+    }
+    File f = SD.open(safe_path);
+    bool is_dir = f.isDirectory();
+    f.close();
+    bool ok = is_dir ? SD.rmdir(safe_path) : SD.remove(safe_path);
+    s_server.send(ok ? 200 : 500, "application/json",
+                  ok ? "{\"ok\":true}" : "{\"error\":\"delete failed\"}");
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 void httpServerInit(void)
@@ -271,6 +459,12 @@ void httpServerInit(void)
     s_server.on("/tasks/add",     HTTP_POST, handle_tasks_add);
     s_server.on("/tasks/complete",HTTP_POST, handle_tasks_complete);
     s_server.on("/tasks/delete",  HTTP_POST, handle_tasks_delete);
+    /* DeskDrive file-system API */
+    s_server.on("/api/fs/list",     HTTP_GET,  handle_fs_list);
+    s_server.on("/api/fs/download", HTTP_GET,  handle_fs_download);
+    s_server.on("/api/fs/upload",   HTTP_POST, handle_fs_upload_done, handle_fs_upload_file);
+    s_server.on("/api/fs/mkdir",    HTTP_POST, handle_fs_mkdir);
+    s_server.on("/api/fs/delete",   HTTP_POST, handle_fs_delete);
 
     s_server.begin();
     Serial.printf("[HTTP] Server started. Visit http://%s/status\n",
