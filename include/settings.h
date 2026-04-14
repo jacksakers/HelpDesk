@@ -45,6 +45,11 @@ void         settingsSetOwmCity(const char * city);
 const char * settingsGetOwmUnits(void);   /* "metric" or "imperial" */
 void         settingsSetOwmUnits(const char * units);
 
+// ── Companion-app connection ───────────────────────────────────────────────────
+// IP address of the PC running the companion app (used for voice transcription).
+const char * settingsGetCompanionIP(void);
+void         settingsSetCompanionIP(const char * ip);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

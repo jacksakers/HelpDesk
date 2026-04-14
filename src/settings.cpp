@@ -20,6 +20,7 @@ static char s_wifi_password[64] = "";
 static char s_owm_key[64]       = "";
 static char s_owm_city[64]      = "";
 static char s_owm_units[12]     = "imperial";
+static char s_companion_ip[40]  = "";
 /* ── Parse one "key=value" line and store into the mirror ───────────────── */
 static void apply_kv(const char * key, const char * val)
 {
@@ -45,6 +46,9 @@ static void apply_kv(const char * key, const char * val)
     } else if (strcmp(key, "owm_units") == 0) {
         strncpy(s_owm_units, val, sizeof(s_owm_units) - 1);
         s_owm_units[sizeof(s_owm_units) - 1] = '\0';
+    } else if (strcmp(key, "companion_ip") == 0) {
+        strncpy(s_companion_ip, val, sizeof(s_companion_ip) - 1);
+        s_companion_ip[sizeof(s_companion_ip) - 1] = '\0';
     }
     /* Unknown keys are silently ignored for forwards compatibility */
 }
@@ -92,6 +96,7 @@ void settingsInit(void)
     s_owm_key[0]       = '\0';
     s_owm_city[0]      = '\0';
     strncpy(s_owm_units, "imperial", sizeof(s_owm_units) - 1);
+    s_companion_ip[0]  = '\0';
     load_from_sd();
 
     /* Push loaded values into their respective subsystems */
@@ -132,6 +137,7 @@ void settingsSave(void)
     f.printf("owm_key=%s\n",       s_owm_key);
     f.printf("owm_city=%s\n",      s_owm_city);
     f.printf("owm_units=%s\n",     s_owm_units);
+    f.printf("companion_ip=%s\n",  s_companion_ip);
     f.close();
 
     Serial.printf("[Settings] Saved: sound_muted=%d  click_tone=%d\n",
@@ -158,3 +164,6 @@ void         settingsSetOwmCity(const char * v)         { strncpy(s_owm_city, v,
 
 const char * settingsGetOwmUnits(void)                  { return s_owm_units; }
 void         settingsSetOwmUnits(const char * v)        { strncpy(s_owm_units, v, sizeof(s_owm_units) - 1); s_owm_units[sizeof(s_owm_units)-1] = '\0'; }
+
+const char * settingsGetCompanionIP(void)               { return s_companion_ip; }
+void         settingsSetCompanionIP(const char * v)     { strncpy(s_companion_ip, v, sizeof(s_companion_ip) - 1); s_companion_ip[sizeof(s_companion_ip)-1] = '\0'; }

@@ -14,6 +14,7 @@
 #include "sd_card.h"
 #include "settings.h"
 #include "zen_frame.h"
+#include "task_master.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -153,9 +154,108 @@ static void handle_settings_post()
     if (doc["owm_api_key"].is<const char*>())   settingsSetOwmKey(doc["owm_api_key"]);
     if (doc["zip_code"].is<const char*>())      settingsSetOwmCity(doc["zip_code"]);
     if (doc["units"].is<const char*>())         settingsSetOwmUnits(doc["units"]);
+    if (doc["companion_ip"].is<const char*>())  settingsSetCompanionIP(doc["companion_ip"]);
 
     settingsSave();
     Serial.println("[HTTP] Settings updated from companion app.");
+    s_server.send(200, "application/json", "{\"ok\":true}");
+}
+
+// ── Route: GET /tasks — return all tasks as JSON ──────────────────────────────
+
+static void handle_tasks_get()
+{
+    JsonDocument doc;
+    JsonArray arr = doc.to<JsonArray>();
+
+    int count = taskGetCount();
+    for (int i = 0; i < count; i++) {
+        const task_t *t = taskGet(i);
+        if (!t) continue;
+        JsonObject o = arr.add<JsonObject>();
+        o["id"]     = t->id;
+        o["text"]   = t->text;
+        o["repeat"] = t->repeat;
+        o["done"]   = t->done_today;
+    }
+
+    int daily_xp, total_xp, level, streak;
+    taskGetStats(&daily_xp, &total_xp, &level, &streak);
+
+    JsonDocument resp;
+    resp["tasks"]     = arr;
+    resp["daily_xp"]  = daily_xp;
+    resp["total_xp"]  = total_xp;
+    resp["level"]     = level;
+    resp["streak"]    = streak;
+    resp["daily_done"] = taskGetDailyDone();
+
+    String out;
+    serializeJson(resp, out);
+    s_server.send(200, "application/json", out);
+}
+
+// ── Route: POST /tasks/add ────────────────────────────────────────────────────
+
+static void handle_tasks_add()
+{
+    String body = s_server.arg("plain");
+    if (body.isEmpty()) {
+        s_server.send(400, "application/json", "{\"error\":\"empty body\"}");
+        return;
+    }
+    JsonDocument doc;
+    if (deserializeJson(doc, body)) {
+        s_server.send(400, "application/json", "{\"error\":\"bad json\"}");
+        return;
+    }
+    const char *text = doc["text"] | "";
+    bool repeat      = doc["repeat"] | false;
+
+    if (strlen(text) == 0) {
+        s_server.send(400, "application/json", "{\"error\":\"text required\"}");
+        return;
+    }
+    if (!taskAdd(text, repeat)) {
+        s_server.send(507, "application/json", "{\"error\":\"task list full\"}");
+        return;
+    }
+    s_server.send(200, "application/json", "{\"ok\":true}");
+}
+
+// ── Route: POST /tasks/complete ───────────────────────────────────────────────
+
+static void handle_tasks_complete()
+{
+    String body = s_server.arg("plain");
+    JsonDocument doc;
+    if (body.isEmpty() || deserializeJson(doc, body)) {
+        s_server.send(400, "application/json", "{\"error\":\"bad json\"}");
+        return;
+    }
+    uint32_t id = doc["id"] | 0u;
+    if (!taskComplete(id)) {
+        s_server.send(404, "application/json", "{\"error\":\"not found or already done\"}");
+        return;
+    }
+    s_server.send(200, "application/json", "{\"ok\":true}");
+}
+
+// ── Route: POST /tasks/delete ─────────────────────────────────────────────────
+
+static void handle_tasks_delete()
+{
+    String body = s_server.arg("plain");
+    JsonDocument doc;
+    if (body.isEmpty() || deserializeJson(doc, body)) {
+        s_server.send(400, "application/json", "{\"error\":\"bad json\"}");
+        return;
+    }
+    uint32_t id = doc["id"] | 0u;
+    if (!taskDelete(id)) {
+        s_server.send(404, "application/json", "{\"error\":\"not found\"}");
+        return;
+    }
     s_server.send(200, "application/json", "{\"ok\":true}");
 }
 
@@ -167,6 +267,10 @@ void httpServerInit(void)
     s_server.on("/upload/image",  HTTP_POST, handle_upload_done, handle_file_upload);
     s_server.on("/upload/audio",  HTTP_POST, handle_upload_done, handle_file_upload);
     s_server.on("/settings",      HTTP_POST, handle_settings_post);
+    s_server.on("/tasks",         HTTP_GET,  handle_tasks_get);
+    s_server.on("/tasks/add",     HTTP_POST, handle_tasks_add);
+    s_server.on("/tasks/complete",HTTP_POST, handle_tasks_complete);
+    s_server.on("/tasks/delete",  HTTP_POST, handle_tasks_delete);
 
     s_server.begin();
     Serial.printf("[HTTP] Server started. Visit http://%s/status\n",

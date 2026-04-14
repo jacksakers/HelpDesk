@@ -6,10 +6,11 @@
 import asyncio
 import json
 import logging
+import tempfile
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -36,6 +37,12 @@ class _SettingsBody(BaseModel):
     zip_code:      Optional[str] = None
     units:         Optional[str] = None
     device_ip:     Optional[str] = None
+    companion_ip:  Optional[str] = None
+
+
+class _TaskAddBody(BaseModel):
+    text:   str
+    repeat: bool = False
 
 app = FastAPI(title="HelpDesk Companion App")
 logging.basicConfig(level=logging.INFO)
@@ -289,6 +296,135 @@ async def _on_connect_change(connected: bool) -> None:
     logging.info(f"[Serial] HelpDesk {status}.")
     await _manager.broadcast({"type": "serial_status", "connected": connected})
     await _manager.broadcast({"type": "serial_log", "label": f"HelpDesk {status}"})
+
+
+# ── Task routes (proxy to HelpDesk HTTP API) ─────────────────────────────────
+
+def _device_base_url() -> str | None:
+    ip = settings_store.get("device_ip", "")
+    return f"http://{ip}" if ip else None
+
+
+@app.get("/api/tasks")
+async def get_tasks():
+    """Fetches the current task list and XP stats from the HelpDesk."""
+    base = _device_base_url()
+    if not base:
+        raise HTTPException(503, "Device IP not configured — set it in Settings.")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{base}/tasks")
+        if resp.status_code == 200:
+            return resp.json()
+        raise HTTPException(resp.status_code, "Device returned an error.")
+    except Exception as e:
+        raise HTTPException(503, f"Could not reach device: {e}")
+
+
+@app.post("/api/tasks/add")
+async def add_task(body: _TaskAddBody):
+    """Adds a new task to the HelpDesk task list."""
+    if not body.text.strip():
+        raise HTTPException(400, "text must not be empty")
+    base = _device_base_url()
+    if not base:
+        raise HTTPException(503, "Device IP not configured.")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(f"{base}/tasks/add",
+                                     json={"text": body.text.strip(),
+                                           "repeat": body.repeat})
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(503, f"Could not reach device: {e}")
+
+
+@app.post("/api/tasks/complete")
+async def complete_task(task_id: int):
+    """Marks a task as completed on the HelpDesk."""
+    base = _device_base_url()
+    if not base:
+        raise HTTPException(503, "Device IP not configured.")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(f"{base}/tasks/complete", json={"id": task_id})
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(503, f"Could not reach device: {e}")
+
+
+@app.post("/api/tasks/delete")
+async def delete_task(task_id: int):
+    """Deletes a task from the HelpDesk."""
+    base = _device_base_url()
+    if not base:
+        raise HTTPException(503, "Device IP not configured.")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(f"{base}/tasks/delete", json={"id": task_id})
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(503, f"Could not reach device: {e}")
+
+
+# ── Voice transcription route ─────────────────────────────────────────────────
+
+_MAX_VOICE_BYTES = 2 * 1024 * 1024   # 2 MB — 3 s @ 16 kHz 16-bit is only ~96 KB
+
+# Lazily loaded so startup is fast even if faster-whisper isn't installed.
+_whisper_model = None
+
+def _get_whisper_model():
+    global _whisper_model
+    if _whisper_model is None:
+        try:
+            from faster_whisper import WhisperModel
+        except ImportError:
+            raise HTTPException(501,
+                "faster-whisper is not installed. Run: pip install faster-whisper")
+        logging.info("[Voice] Loading Whisper 'small' model (first call only)...")
+        _whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
+        logging.info("[Voice] Whisper model ready.")
+    return _whisper_model
+
+
+@app.post("/api/voice/transcribe")
+async def voice_transcribe(request: Request):
+    """Receives a raw WAV body (Content-Type: audio/wav) from the HelpDesk mic,
+    runs faster-whisper, and returns {"text": "<transcription>"}.
+
+    The ESP32 sends a plain HTTP POST with raw bytes — NOT multipart form data.
+    Requires: pip install faster-whisper
+    The first call downloads the small model (~150 MB) to ~/.cache/huggingface/.
+    """
+    data = await request.body()
+    if len(data) > _MAX_VOICE_BYTES:
+        raise HTTPException(413, "Audio exceeds 2 MB limit.")
+    if len(data) < 44:
+        raise HTTPException(400, "Body too small to be a valid WAV.")
+
+    model = _get_whisper_model()
+
+    # Write to temp file — Whisper needs a path, not bytes in memory.
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        tmp.write(data)
+        tmp_path = tmp.name
+
+    try:
+        segments, _ = model.transcribe(tmp_path, language="en", beam_size=1)
+        text = " ".join(seg.text.strip() for seg in segments).strip()
+    except Exception as e:
+        logging.error(f"[Voice] Transcription failed: {e}")
+        raise HTTPException(500, f"Transcription error: {e}")
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    logging.info(f"[Voice] Transcribed: \"{text}\"")
+    return {"text": text}
 
 
 # ── Startup ──────────────────────────────────────────────────────────────────

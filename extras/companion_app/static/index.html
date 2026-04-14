@@ -30,6 +30,7 @@
     <!-- Tab Navigation -->
     <div class="flex gap-1 bg-gray-800 p-1 rounded-xl border border-gray-700">
         <button id="tab-btn-status"   onclick="showTab('status')"   class="flex-1 py-2 px-4 rounded-lg text-sm font-medium bg-gray-700 text-white   transition">Status</button>
+        <button id="tab-btn-tasks"    onclick="showTab('tasks')"    class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">Tasks</button>
         <button id="tab-btn-media"    onclick="showTab('media')"    class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">Media</button>
         <button id="tab-btn-settings" onclick="showTab('settings')" class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">Settings</button>
     </div>
@@ -112,6 +113,63 @@
             </div>
             <div id="activity-log" class="space-y-1 max-h-52 overflow-y-auto font-mono text-sm">
                 <p id="log-empty" class="text-gray-500 text-xs italic">No events yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- TASKS TAB -->
+    <div id="tab-tasks" class="hidden space-y-5">
+        <!-- XP / Stats Card -->
+        <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-semibold">Daily Progress</h2>
+                <button onclick="loadTasks()" class="text-xs text-gray-400 hover:text-white transition">Refresh</button>
+            </div>
+            <div class="grid grid-cols-3 gap-4 text-center text-sm mb-4">
+                <div>
+                    <p class="text-gray-400 text-xs mb-1">Level</p>
+                    <p id="task-level" class="text-purple-400 font-bold text-xl">--</p>
+                </div>
+                <div>
+                    <p class="text-gray-400 text-xs mb-1">Total XP</p>
+                    <p id="task-total-xp" class="text-yellow-400 font-bold text-xl">--</p>
+                </div>
+                <div>
+                    <p class="text-gray-400 text-xs mb-1">Streak</p>
+                    <p id="task-streak" class="text-orange-400 font-bold text-xl">--</p>
+                </div>
+            </div>
+            <div>
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-gray-400">Daily XP</span>
+                    <span id="task-daily-xp-val" class="text-emerald-400 font-mono">0 / 50</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full h-3">
+                    <div id="task-xp-bar" class="bg-emerald-500 h-3 rounded-full transition-all duration-500" style="width:0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Task Form -->
+        <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+            <h2 class="text-lg font-semibold mb-3">Add Task</h2>
+            <div class="flex gap-3">
+                <input id="task-new-text" type="text" placeholder="What needs doing?"
+                    class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 transition"
+                    onkeydown="if(event.key==='Enter') addTask()">
+                <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+                    <input type="checkbox" id="task-repeat" class="accent-blue-500"> Repeat
+                </label>
+                <button onclick="addTask()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition">+ Add</button>
+            </div>
+            <p id="task-add-status" class="mt-2 text-xs hidden"></p>
+        </div>
+
+        <!-- Task List -->
+        <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+            <h2 class="text-lg font-semibold mb-3">Tasks</h2>
+            <div id="task-list" class="space-y-2">
+                <p id="task-list-empty" class="text-gray-500 text-sm italic">No tasks yet. Load from device or add one above.</p>
             </div>
         </div>
     </div>
@@ -215,11 +273,19 @@
             <!-- Device Connection -->
             <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
                 <h2 class="text-lg font-semibold mb-1">Device Connection</h2>
-                <p class="text-xs text-gray-500 mb-4">Local IP of the HelpDesk. Used for Wi-Fi file transfers.</p>
-                <div class="w-56">
-                    <label class="block text-sm text-gray-400 mb-1">HelpDesk IP Address</label>
-                    <input name="device_ip" type="text" placeholder="e.g. 192.168.1.42"
-                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 transition font-mono">
+                <p class="text-xs text-gray-500 mb-4">Set both IPs for full two-way features (tasks, voice input).</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">HelpDesk IP <span class="text-gray-500 text-xs">(device → companion uploads)</span></label>
+                        <input name="device_ip" type="text" placeholder="e.g. 192.168.1.42"
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 transition font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Companion (this PC) IP <span class="text-gray-500 text-xs">(for voice transcription)</span></label>
+                        <input name="companion_ip" type="text" placeholder="e.g. 192.168.1.10"
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 transition font-mono">
+                        <p class="text-xs text-gray-600 mt-1">Run <code>ipconfig</code> to find your PC's local IP. The HelpDesk sends mic audio here.</p>
+                    </div>
                 </div>
             </div>
             <!-- Save -->
@@ -232,7 +298,7 @@
 
 </div>
 <script>
-const TABS = ['status','media','settings'];
+const TABS = ['status','tasks','media','settings'];
 function showTab(name) {
     TABS.forEach(t => {
         document.getElementById('tab-'+t).classList.toggle('hidden', t !== name);
@@ -242,6 +308,7 @@ function showTab(name) {
             : 'flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition';
     });
     if (name === 'settings') loadSettings();
+    if (name === 'tasks')    loadTasks();
 }
 
 const MACROS = [
@@ -417,9 +484,139 @@ function updateDeviceStatus(d) {
         document.getElementById('device-sd-bar').style.width = pct+'%';
     }
 }
+
+// ── Tasks tab ──────────────────────────────────────────────────────────────
+let _taskData = [];
+
+async function loadTasks() {
+    try {
+        const data = await (await fetch('/api/tasks')).json();
+        _taskData = data.tasks || [];
+        renderTasks(_taskData, data);
+    } catch(e) {
+        document.getElementById('task-list').innerHTML =
+            '<p class="text-red-400 text-sm">Could not reach device. Check Settings → HelpDesk IP.</p>';
+    }
+}
+
+function renderTasks(tasks, stats) {
+    // Update stats
+    const goal = 50;
+    const pct  = Math.min(100, Math.round((stats.daily_xp || 0) / goal * 100));
+    document.getElementById('task-level').textContent     = stats.level ?? '--';
+    document.getElementById('task-total-xp').textContent  = (stats.total_xp ?? '--') + ' XP';
+    document.getElementById('task-streak').textContent    = (stats.streak ?? '--') + 'd';
+    document.getElementById('task-daily-xp-val').textContent = (stats.daily_xp || 0) + ' / ' + goal;
+    document.getElementById('task-xp-bar').style.width   = pct + '%';
+    document.getElementById('task-xp-bar').className     =
+        'h-3 rounded-full transition-all duration-500 ' +
+        (pct >= 100 ? 'bg-yellow-400' : 'bg-emerald-500');
+
+    const list = document.getElementById('task-list');
+    const empty = document.getElementById('task-list-empty');
+    if (empty) empty.remove();
+    list.innerHTML = '';
+
+    if (!tasks || tasks.length === 0) {
+        list.innerHTML = '<p class="text-gray-500 text-sm italic">No tasks yet.</p>';
+        return;
+    }
+
+    // Active first, done after
+    const active = tasks.filter(t => !t.done);
+    const done   = tasks.filter(t =>  t.done);
+
+    [...active, ...done].forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-3 p-2 rounded-lg ' +
+            (t.done ? 'bg-gray-900 opacity-60' : 'bg-gray-700');
+
+        const icon = document.createElement('span');
+        icon.textContent = t.done ? '✓' : '○';
+        icon.className = t.done ? 'text-emerald-400 w-5 text-center shrink-0'
+                                 : 'text-gray-400 w-5 text-center shrink-0 cursor-pointer';
+        if (!t.done) icon.onclick = () => completeTask(t.id);
+
+        const text = document.createElement('span');
+        text.textContent = t.text;
+        text.className = 'flex-1 text-sm ' + (t.done ? 'line-through text-gray-500' : 'text-white');
+
+        const badges = document.createElement('div');
+        badges.className = 'flex items-center gap-2';
+        if (t.repeat) {
+            const rep = document.createElement('span');
+            rep.textContent = '↺';
+            rep.title = 'Repeating daily';
+            rep.className = 'text-blue-400 text-xs';
+            badges.appendChild(rep);
+        }
+        const xp = document.createElement('span');
+        xp.textContent = '+10 XP';
+        xp.className = t.done ? 'text-gray-600 text-xs' : 'text-yellow-500 text-xs font-mono';
+        badges.appendChild(xp);
+
+        const del = document.createElement('button');
+        del.textContent = '×';
+        del.className = 'text-gray-500 hover:text-red-400 text-sm transition ml-1';
+        del.onclick = () => deleteTask(t.id);
+        badges.appendChild(del);
+
+        row.appendChild(icon);
+        row.appendChild(text);
+        row.appendChild(badges);
+        list.appendChild(row);
+    });
+}
+
+async function addTask() {
+    const input  = document.getElementById('task-new-text');
+    const repeat = document.getElementById('task-repeat').checked;
+    const text   = input.value.trim();
+    if (!text) return;
+    const statusEl = document.getElementById('task-add-status');
+    statusEl.textContent = 'Adding...';
+    statusEl.className = 'mt-2 text-xs text-gray-400';
+    statusEl.classList.remove('hidden');
+    try {
+        const res  = await fetch('/api/tasks/add', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text, repeat})
+        });
+        if (res.ok) {
+            input.value = '';
+            document.getElementById('task-repeat').checked = false;
+            statusEl.textContent = 'Added!';
+            statusEl.className = 'mt-2 text-xs text-emerald-400';
+            loadTasks();
+        } else {
+            const d = await res.json();
+            statusEl.textContent = 'Error: ' + (d.detail || d.error || 'Unknown');
+            statusEl.className = 'mt-2 text-xs text-red-400';
+        }
+    } catch(e) {
+        statusEl.textContent = 'Network error';
+        statusEl.className = 'mt-2 text-xs text-red-400';
+    }
+    setTimeout(() => statusEl.classList.add('hidden'), 3000);
+}
+
+async function completeTask(id) {
+    try {
+        await fetch('/api/tasks/complete?task_id=' + id, {method: 'POST'});
+        loadTasks();
+    } catch {}
+}
+
+async function deleteTask(id) {
+    try {
+        await fetch('/api/tasks/delete?task_id=' + id, {method: 'POST'});
+        loadTasks();
+    } catch {}
+}
+
 buildMacroGrid();
 connectWs();
 </script>
 </body>
 </html>
-

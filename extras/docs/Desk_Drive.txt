@@ -1,0 +1,95 @@
+Feature Design: DeskDrive (HelpDesk NAS & File Explorer)
+
+1. Concept Overview
+
+The DeskDrive feature transforms the HelpDesk into a localized Network Attached Storage (NAS) device and an on-device media viewer. By equipping the HelpDesk with a high-capacity MicroSD card (e.g., 64GB or 128GB), users can use the Companion App's web dashboard to wirelessly upload and organize files.
+
+Additionally, the HelpDesk features a native "File Explorer" app on its 3.5" touchscreen, allowing you to visually browse the SD card, open text documents, view images, and launch media without needing your host PC.
+
+2. Network Architecture (Wi-Fi over Serial)
+
+Because the USB Serial port is too slow for bulk file transfers, the DeskDrive will operate entirely over the local Wi-Fi network for remote management.
+
+The Server (ESP32): The HelpDesk will run an asynchronous HTTP server (ESPAsyncWebServer). It will expose RESTful API endpoints specifically for file management.
+
+The Client (Companion App): The Python FastAPI dashboard will feature a "File Explorer" tab. When you drag and drop a file into the browser, the Python app streams that file over your local Wi-Fi directly to the ESP32's IP address.
+
+3. HelpDesk Device Implementation (ESP32 Side)
+
+A. The Web Server Endpoints (For PC Management)
+
+The ESP32 will listen for the following HTTP requests from the Companion App:
+
+GET /api/fs/list?dir=/myfolder -> Returns a JSON array of files and folders in that directory.
+
+POST /api/fs/upload -> Accepts a multipart/form-data file stream and writes it directly to the SD card.
+
+GET /api/fs/download?path=/file.txt -> Streams the requested file from the SD card back to the client.
+
+POST /api/fs/mkdir -> Creates a new directory.
+
+DELETE /api/fs/delete?path=/file.txt -> Deletes the specified file or folder.
+
+B. The "DeskDrive" App UI (On-Device File Explorer)
+
+When the user taps the "DeskDrive" app on the HelpDesk touchscreen, it opens a fully functional, touch-optimized file manager built with LVGL.
+
+Directory Browser (lv_list): A scrollable list of files and folders.
+
+Folders have a 📁 icon. Tapping one re-renders the list with the contents of that folder.
+
+Files have specific icons based on extensions (📝 for .txt, 🖼️ for .bmp/.png, 🎵 for .mp3).
+
+A persistent "⬆️ Back / Up" button sits at the top to navigate up the directory tree.
+
+Storage Dashboard Banner: A small banner at the top or bottom displaying current Wi-Fi IP (e.g., 192.168.1.50) and SD card capacity (e.g., "32GB / 64GB Used").
+
+C. On-Device File Viewers
+
+When a file is tapped in the LVGL Directory Browser, the ESP32 acts based on the file extension:
+
+Text Viewer (.txt, .json, .md): Opens a full-screen lv_textarea (set to read-only mode) that loads the text from the SD card. Allows for smooth finger-scrolling through notes or code snippets.
+
+Image Viewer (.bmp, .jpg): Opens an lv_img widget. For best performance, images should be pre-sized to the screen's resolution (e.g., 480x320 or 320x240). LVGL can decode standard BMPs and JPGs natively if the decoders are enabled in lv_conf.h.
+
+Audio Launcher (.mp3): Tapping an audio file instantly passes the file path to the "JukeDesk" background task, playing the audio out of the built-in speaker/audio port while keeping you in the file browser.
+
+4. Companion App Implementation (Host PC Side)
+
+The Python FastAPI dashboard will get a new, dedicated navigation tab called "Drive".
+
+A. The UI Interface
+
+Designed to mimic Google Drive or Windows File Explorer.
+
+Breadcrumb Navigation: E.g., Home > Documents > Work to easily traverse folders.
+
+Drag-and-Drop: A massive drop zone area. You can drag multiple files from your desktop straight into the browser.
+
+Context Menus: Right-clicking a file gives options to "Download", "Rename", or "Delete".
+
+B. Proxying the Requests
+
+To avoid CORS (Cross-Origin Resource Sharing) security issues in the browser, the Python backend will act as a proxy:
+
+The user drops a file into the Web UI.
+
+The Web UI sends the file to the Python FastAPI backend.
+
+The Python backend silently forwards the file over the local network to the ESP32's IP address.
+
+5. Realistic Hardware Limitations & Expectations
+
+Transfer Speeds: The ESP32 communicates with the SD card via SPI (Serial Peripheral Interface). Combined with Wi-Fi overhead, maximum read/write speeds will be around 1.0 to 1.5 MB/s. It is perfect for documents, images, MP3s, and PDFs, but it is not suitable for editing 4K video directly off the drive.
+
+Image Decoding Ram Limitations: While LVGL can decode JPGs, doing so takes a massive chunk of the ESP32's RAM. If your specific board doesn't have PSRAM enabled, viewing large, high-res photos on the device might cause a crash. (Solution: Have the Companion App automatically downscale images to 480x320 before uploading).
+
+SD Card Formatting: The SD card must be formatted to FAT32 for the best compatibility with the ESP32's SD or SdFat libraries.
+
+6. Future Expansions
+
+Auto-Sorting: If you upload an .mp3, the ESP32 automatically moves it to the /music folder so the HelpDesk's "JukeDesk" app can find it instantly.
+
+Network Drive Mapping: Using Python tools, you could map the HelpDesk as a literal Z:\ network drive in Windows File Explorer!
+
+On-Device Editing: Adding a tiny LVGL on-screen keyboard to the text viewer so you can edit and save .txt files directly on the screen without the PC.
