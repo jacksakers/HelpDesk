@@ -6,6 +6,7 @@
 #include <lvgl.h>
 #include "display_Screen.h"
 #include "LovyanGFX_Driver.h"
+#include "logo_image.h"
 #include "buzzer.h"
 #include <Arduino.h>
 #include <Wire.h>
@@ -147,26 +148,56 @@ void initDisplay()
     // to RGB666 inside pushImage.  Slightly slower but correct.
     Serial.println("[Display] Panel colour depth left at default (18-bit / RGB666 SPI)");
 
-    gfx.startWrite();
-    gfx.fillScreen(TFT_BLACK);
+    // Backlight on before the logo so it is visible
+    pinMode(38, OUTPUT);
+    digitalWrite(38, HIGH);
+    Serial.println("[Display] Backlight ON (GPIO 38)");
 
-    // ── Visual hardware test: red/green/blue bars ──────────────
-    // If you see these, the SPI + display panel work correctly.
-    gfx.fillRect(0,   0, 480, 107, TFT_RED);
-    gfx.fillRect(0, 107, 480, 107, TFT_GREEN);
-    gfx.fillRect(0, 214, 480, 106, TFT_BLUE);
-    Serial.println("[Display] RGB test bars drawn — you should see red/green/blue");
-    delay(1500);  // pause so you can see the test pattern
+    gfx.startWrite();
+
+    // ── Boot logo: decompress RLE from flash into PSRAM, then push ────────
+    // The RLE array in flash is ~72 KB; uncompressed RGB565 is 307 KB.
+    // We allocate the pixel buffer in PSRAM so the LVGL heap is untouched.
+    Serial.println("[Display] Decompressing boot logo...");
+    {
+        const size_t pixel_count = (size_t)LOGO_WIDTH * LOGO_HEIGHT;
+        const size_t buf_bytes   = pixel_count * 2U;  // RGB565 = 2 bytes/pixel
+
+        uint16_t * pix_buf = (uint16_t *)ps_malloc(buf_bytes);
+        if (pix_buf) {
+            // Decode: (uint16_t count, uint16_t pixel) pairs, little-endian
+            const uint8_t  * src     = helpdesk_logo_rle;
+            const uint8_t  * src_end = helpdesk_logo_rle + helpdesk_logo_rle_size;
+            uint16_t       * dst     = pix_buf;
+            const uint16_t * dst_end = pix_buf + pixel_count;
+
+            while (src + 3 < src_end && dst < dst_end) {
+                uint16_t count = (uint16_t)src[0] | ((uint16_t)src[1] << 8);
+                uint16_t pixel = (uint16_t)src[2] | ((uint16_t)src[3] << 8);
+                src += 4;
+                // Cap to avoid writing past dst_end
+                if ((uint32_t)count > (uint32_t)(dst_end - dst)) {
+                    count = (uint16_t)(dst_end - dst);
+                }
+                for (uint16_t k = 0; k < count; k++) {
+                    *dst++ = pixel;
+                }
+            }
+
+            Serial.println("[Display] Showing boot logo...");
+            gfx.pushImage(0, 0, LOGO_WIDTH, LOGO_HEIGHT,
+                          (lgfx::rgb565_t *)pix_buf);
+            free(pix_buf);
+        } else {
+            Serial.println("[Display] ps_malloc failed — skipping boot logo");
+        }
+    }
+    delay(1500);
 
     gfx.fillScreen(TFT_BLACK);
     Serial.println("[Display] fillScreen(BLACK) done");
 
     initLVGL();
-
-    // Backlight on GPIO 38
-    pinMode(38, OUTPUT);
-    digitalWrite(38, HIGH);
-    Serial.println("[Display] Backlight ON (GPIO 38)");
 
     gfx.fillScreen(TFT_BLACK);
     Serial.printf("[Display] initDisplay complete.  Free heap: %u\n",

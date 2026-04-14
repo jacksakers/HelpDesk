@@ -30,15 +30,6 @@
 
 void setup()
 {
-    // ── VERY FIRST THING: blink the backlight so we KNOW the code runs ──
-    // This proves the firmware flashed correctly even if Serial is broken.
-    pinMode(38, OUTPUT);
-    for(int i = 0; i < 6; i++) {          // 3 quick blinks
-        digitalWrite(38, i & 1 ? LOW : HIGH);
-        delay(150);
-    }
-    digitalWrite(38, HIGH);               // leave backlight ON
-
     Serial.begin(115200);
     delay(500);   // brief settle time for UART
 
