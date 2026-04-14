@@ -131,6 +131,23 @@ static void handle_file_upload()
     }
 }
 
+// ── Route: GET /settings ────────────────────────────────────────────────────
+
+static void handle_settings_get()
+{
+    JsonDocument doc;
+    doc["wifi_ssid"]     = settingsGetWifiSSID();
+    doc["wifi_password"] = settingsGetWifiPassword();
+    doc["owm_api_key"]   = settingsGetOwmKey();
+    doc["zip_code"]      = settingsGetOwmCity();
+    doc["units"]         = settingsGetOwmUnits();
+    doc["companion_ip"]  = settingsGetCompanionIP();
+
+    String out;
+    serializeJson(doc, out);
+    s_server.send(200, "application/json", out);
+}
+
 // ── Route: POST /settings ─────────────────────────────────────────────────────
 
 static void handle_settings_post()
@@ -454,6 +471,7 @@ void httpServerInit(void)
     s_server.on("/status",        HTTP_GET,  handle_status);
     s_server.on("/upload/image",  HTTP_POST, handle_upload_done, handle_file_upload);
     s_server.on("/upload/audio",  HTTP_POST, handle_upload_done, handle_file_upload);
+    s_server.on("/settings",      HTTP_GET,  handle_settings_get);
     s_server.on("/settings",      HTTP_POST, handle_settings_post);
     s_server.on("/tasks",         HTTP_GET,  handle_tasks_get);
     s_server.on("/tasks/add",     HTTP_POST, handle_tasks_add);

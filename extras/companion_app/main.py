@@ -167,8 +167,23 @@ async def upload_audio(file: UploadFile = File(...)):
 
 @app.get("/api/settings")
 async def get_settings():
-    """Returns the current device settings (read from device_settings.json)."""
-    return settings_store.load()
+    """Returns current settings, preferring live values from the device over the local cache.
+    Falls back to device_settings.json when the device is unreachable (e.g. no WiFi yet)."""
+    import httpx
+    local = settings_store.load()
+    device_ip = local.get("device_ip", "")
+    if device_ip:
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                resp = await client.get(f"http://{device_ip}/settings")
+            if resp.status_code == 200:
+                device_settings = resp.json()
+                # device_ip is companion-side only; the device doesn't store its own IP.
+                device_settings["device_ip"] = device_ip
+                return device_settings
+        except Exception as e:
+            logging.warning(f"[Settings] Could not fetch from device ({device_ip}): {e}")
+    return local
 
 
 @app.post("/api/settings")
