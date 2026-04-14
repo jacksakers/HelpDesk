@@ -404,12 +404,10 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     lv_obj_set_style_text_font(rep_lbl, &lv_font_montserrat_10, 0);
     lv_obj_center(rep_lbl);
 
-    /* ── Keyboard (y=70, h=250) ── */
+    /* ── Keyboard — 200 px overlay pinned to bottom, same as DeskDrive editor ── */
     s_kbd = lv_keyboard_create(s_kbd_overlay);
-    lv_obj_set_pos(s_kbd, 0, 70);
-    lv_obj_set_size(s_kbd, SCREEN_W, SCREEN_H - 70);
-    /* Strip only the outer top/bottom container padding so all 4 rows fit.
-       Row/column/item padding is kept so the keys have natural spacing. */
+    lv_obj_set_size(s_kbd, SCREEN_W, 200);
+    lv_obj_align(s_kbd, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_style_pad_top(s_kbd, 0, 0);
     lv_obj_set_style_pad_bottom(s_kbd, 0, 0);
     lv_obj_set_style_border_width(s_kbd, 0, 0);
@@ -417,7 +415,6 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     lv_keyboard_set_textarea(s_kbd, ui_TaskInputArea);
     lv_obj_add_event_cb(s_kbd, kbd_ready_ev, LV_EVENT_READY, NULL);
     lv_obj_add_event_cb(s_kbd, cancel_kbd_ev, LV_EVENT_CANCEL, NULL);
-    ui_kbd_apply_space_map(s_kbd);
 }
 
 /* ── Public lifecycle ──────────────────────────────────────── */

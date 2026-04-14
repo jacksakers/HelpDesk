@@ -282,7 +282,6 @@ static void open_text_editor(const char * path)
     lv_keyboard_set_textarea(s_editor_kbd, s_editor_ta);
     lv_obj_add_event_cb(s_editor_kbd, editor_kbd_hide_ev, LV_EVENT_READY, NULL);
     lv_obj_add_event_cb(s_editor_kbd, editor_kbd_hide_ev, LV_EVENT_CANCEL, NULL);
-    ui_kbd_apply_space_map(s_editor_kbd);
 
     free(buf);
 }
