@@ -398,8 +398,15 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     lv_obj_center(rep_lbl);
 
     s_kbd = lv_keyboard_create(s_kbd_overlay);
-    lv_obj_set_pos(s_kbd, 0, 64);
+    lv_obj_set_pos(s_kbd, 0, 62);
     lv_obj_set_size(s_kbd, SCREEN_W, SCREEN_H - 64);
+    /* Strip default theme padding/border so the button matrix gets the full
+       height to distribute across all 4 rows (including the spacebar row).
+       Without this the container padding squeezes row 4 to 0 px in landscape. */
+    lv_obj_set_style_pad_top(s_kbd, 0, 0);
+    lv_obj_set_style_pad_bottom(s_kbd, 0, 0);
+    lv_obj_set_style_border_width(s_kbd, 0, 0);
+    lv_obj_set_style_shadow_width(s_kbd, 0, 0);
     lv_keyboard_set_textarea(s_kbd, ui_TaskInputArea);
     lv_obj_add_event_cb(s_kbd, kbd_ready_ev, LV_EVENT_READY, NULL);
     lv_obj_add_event_cb(s_kbd, cancel_kbd_ev, LV_EVENT_CANCEL, NULL);

@@ -264,6 +264,29 @@
                 </div>
             </div>
         </div>
+
+        <!-- Text editor modal -->
+        <div id="text-editor-modal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+            <div class="bg-gray-800 rounded-xl w-full max-w-3xl flex flex-col shadow-2xl border border-gray-600" style="max-height:90vh">
+                <div class="flex items-center gap-2 px-4 py-2.5 border-b border-gray-700 shrink-0">
+                    <span id="editor-filename" class="flex-1 text-sm font-mono text-cyan-400 truncate"></span>
+                    <span id="editor-save-status" class="text-xs"></span>
+                    <button onclick="editorSave()" class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">Save</button>
+                    <button onclick="closeTextEditor()" class="bg-gray-600 hover:bg-gray-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">✕ Close</button>
+                </div>
+                <textarea id="editor-textarea"
+                    class="flex-1 bg-gray-900 text-gray-100 font-mono text-sm p-4 resize-none outline-none rounded-b-xl overflow-auto"
+                    spellcheck="false" style="min-height:420px"></textarea>
+            </div>
+        </div>
+
+        <!-- Image viewer modal -->
+        <div id="image-viewer-modal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
+             onclick="closeImageViewer()">
+            <button onclick="closeImageViewer()" class="absolute top-4 right-4 bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-1.5 rounded-lg z-10 transition">✕ Close</button>
+            <img id="image-viewer-img" src="" class="max-w-full max-h-screen object-contain rounded shadow-2xl" alt=""
+                 onclick="event.stopPropagation()">
+        </div>
     </div>
 
     <!-- SETTINGS TAB -->
@@ -706,6 +729,9 @@ async function driveNavigate(path) {
 }
 
 const _DRIVE_ICONS = { folder:'📁', txt:'📄', json:'📄', md:'📄', jpg:'🖼️', jpeg:'🖼️', png:'🖼️', bmp:'🖼️', bin:'🖼️', mp3:'🎵', pdf:'📑' };
+const _TEXT_EXTS = new Set(['txt','json','md']);
+const _IMG_EXTS  = new Set(['jpg','jpeg','png','bmp']);
+function _fileExt(name) { const p = name.split('.'); return p.length > 1 ? p.pop().toLowerCase() : ''; }
 function driveIcon(name, is_dir) {
     if (is_dir) return '📁';
     return _DRIVE_ICONS[name.split('.').pop().toLowerCase()] || '📎';
@@ -730,9 +756,14 @@ function renderDriveEntries(entries) {
     });
     sorted.forEach(entry => {
         const fullPath = (_driveCwd === '/' ? '' : _driveCwd) + '/' + entry.name;
+        const ext = _fileExt(entry.name);
+        const isText    = !entry.is_dir && _TEXT_EXTS.has(ext);
+        const isViewImg = !entry.is_dir && _IMG_EXTS.has(ext);
         const row = document.createElement('div');
-        row.className = 'flex items-center gap-3 px-4 py-2.5 hover:bg-gray-700 transition group ' + (entry.is_dir ? 'cursor-pointer' : '');
-        if (entry.is_dir) row.onclick = () => driveNavigate(fullPath);
+        row.className = 'flex items-center gap-3 px-4 py-2.5 hover:bg-gray-700 transition group ' + (entry.is_dir || isText || isViewImg ? 'cursor-pointer' : '');
+        if (entry.is_dir)      row.onclick = () => driveNavigate(fullPath);
+        else if (isText)       row.onclick = () => openTextEditor(fullPath);
+        else if (isViewImg)    row.onclick = () => openImageViewer(fullPath);
 
         const icon = document.createElement('span');
         icon.textContent = driveIcon(entry.name, entry.is_dir);
@@ -838,6 +869,52 @@ async function mkdirConfirm() {
 
 buildMacroGrid();
 connectWs();
+
+// ── Text editor modal ───────────────────────────────────────────────────
+let _editorPath = '';
+async function openTextEditor(path) {
+    _editorPath = path;
+    document.getElementById('editor-filename').textContent = path.split('/').pop();
+    const ta = document.getElementById('editor-textarea');
+    ta.value = 'Loading…';
+    document.getElementById('editor-save-status').textContent = '';
+    document.getElementById('text-editor-modal').classList.remove('hidden');
+    try {
+        const r = await fetch('/api/drive/download?path=' + encodeURIComponent(path));
+        ta.value = r.ok ? await r.text() : '// Error loading file';
+    } catch { ta.value = '// Network error'; }
+    ta.focus();
+}
+async function editorSave() {
+    const content = document.getElementById('editor-textarea').value;
+    const st = document.getElementById('editor-save-status');
+    st.textContent = 'Saving…'; st.className = 'text-xs text-gray-400';
+    try {
+        const r = await fetch('/api/drive/write', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({path: _editorPath, content}),
+        });
+        if (r.ok) {
+            st.textContent = 'Saved ✓'; st.className = 'text-xs text-emerald-400';
+            setTimeout(() => { st.textContent = ''; }, 2000);
+        } else { st.textContent = 'Save failed'; st.className = 'text-xs text-red-400'; }
+    } catch { st.textContent = 'Network error'; st.className = 'text-xs text-red-400'; }
+}
+function closeTextEditor() {
+    document.getElementById('text-editor-modal').classList.add('hidden');
+}
+
+// ── Image viewer modal ──────────────────────────────────────────────
+function openImageViewer(path) {
+    document.getElementById('image-viewer-img').src =
+        '/api/drive/download?path=' + encodeURIComponent(path);
+    document.getElementById('image-viewer-modal').classList.remove('hidden');
+}
+function closeImageViewer() {
+    document.getElementById('image-viewer-modal').classList.add('hidden');
+    document.getElementById('image-viewer-img').src = '';
+}
 </script>
 </body>
 </html>

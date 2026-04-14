@@ -508,6 +508,102 @@ async def drive_delete(body: dict):
         raise HTTPException(503, f"Could not reach device: {e}")
 
 
+class _DriveWriteBody(BaseModel):
+    path: str
+    content: str
+
+
+@app.post("/api/drive/write")
+async def drive_write(body: _DriveWriteBody):
+    """Write/overwrite a text file on the HelpDesk SD card. Proxies POST /api/fs/write."""
+    path = _validate_sd_path(body.path)
+    if len(body.content) > 65536:
+        raise HTTPException(413, "Content too large (64 KB max)")
+    base = _device_base_url()
+    if not base:
+        raise HTTPException(503, "Device IP not configured.")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                f"{base}/api/fs/write",
+                json={"path": path, "content": body.content},
+            )
+        if resp.status_code == 200:
+            return {"ok": True}
+        raise HTTPException(resp.status_code, resp.text)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(503, f"Could not reach device: {e}")
+
+
+@app.post("/api/drive/convert")
+async def drive_convert(request: Request):
+    """
+    Download a JPG/PNG from the device SD card, convert it to an LVGL v9 .bin,
+    and upload the result back to the same directory on the device.
+    Body JSON: {"path": "/images/foo.jpg", "device_ip": "192.168.x.y"}
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+
+    path = _validate_sd_path(data.get("path", ""))
+    device_ip = data.get("device_ip") or settings_store.get("device_ip")
+    if not device_ip:
+        raise HTTPException(503, "device_ip not provided and not configured in Settings")
+
+    try:
+        from PIL import Image
+        import io as _io
+    except ImportError:
+        raise HTTPException(503, "Pillow not installed — run: pip install pillow")
+
+    import httpx
+    from pathlib import Path as _Path
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # 1. Download the source image from the device
+            dl = await client.get(
+                f"http://{device_ip}/api/fs/download",
+                params={"path": path},
+            )
+            if dl.status_code != 200:
+                raise HTTPException(502, f"Device download failed (HTTP {dl.status_code})")
+
+            # 2. Convert to LVGL v9 .bin via media_manager
+            img = Image.open(_io.BytesIO(dl.content)).convert("RGB")
+            bin_data = media_manager._to_lvgl_bin(
+                img, media_manager._DISPLAY_W, media_manager._DISPLAY_H
+            )
+
+            # 3. Upload .bin to the same directory on the device
+            stem     = _Path(path).stem
+            dir_path = str(_Path(path).parent)
+            if dir_path == ".":
+                dir_path = "/"
+            bin_name = f"{stem}.bin"
+
+            upload = await client.post(
+                f"http://{device_ip}/api/fs/upload",
+                params={"dir": dir_path},
+                files={"file": (bin_name, bin_data, "application/octet-stream")},
+            )
+            if upload.status_code != 200:
+                raise HTTPException(502, f"Device upload failed (HTTP {upload.status_code})")
+
+        logging.info(f"[Convert] {path} → {dir_path}/{bin_name}")
+        return {"ok": True, "bin_path": f"{dir_path}/{bin_name}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[Convert] {e}")
+        raise HTTPException(500, f"Conversion failed: {e}")
+
+
 # ── Voice transcription route ─────────────────────────────────────────────────
 
 _MAX_VOICE_BYTES = 2 * 1024 * 1024   # 2 MB — 3 s @ 16 kHz 16-bit is only ~96 KB

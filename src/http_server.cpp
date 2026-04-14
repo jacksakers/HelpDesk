@@ -464,6 +464,36 @@ static void handle_fs_delete()
                   ok ? "{\"ok\":true}" : "{\"error\":\"delete failed\"}");
 }
 
+/* POST /api/fs/write — body: {"path":"/file.txt","content":"..."} — write/overwrite a text file */
+static void handle_fs_write()
+{
+    if (!sdCardMounted()) {
+        s_server.send(503, "application/json", "{\"error\":\"SD not mounted\"}");
+        return;
+    }
+    JsonDocument doc;
+    if (s_server.arg("plain").isEmpty() || deserializeJson(doc, s_server.arg("plain"))) {
+        s_server.send(400, "application/json", "{\"error\":\"bad json\"}");
+        return;
+    }
+    char safe_path[128];
+    const char * raw = doc["path"] | "";
+    if (!safe_sd_path(raw, safe_path, sizeof(safe_path)) || safe_path[0] == '\0') {
+        s_server.send(400, "application/json", "{\"error\":\"invalid path\"}");
+        return;
+    }
+    const char * content = doc["content"] | "";
+    if (SD.exists(safe_path)) SD.remove(safe_path);
+    File f = SD.open(safe_path, FILE_WRITE);
+    if (!f) {
+        s_server.send(500, "application/json", "{\"error\":\"write failed\"}");
+        return;
+    }
+    f.print(content);
+    f.close();
+    s_server.send(200, "application/json", "{\"ok\":true}");
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 void httpServerInit(void)
@@ -483,6 +513,7 @@ void httpServerInit(void)
     s_server.on("/api/fs/upload",   HTTP_POST, handle_fs_upload_done, handle_fs_upload_file);
     s_server.on("/api/fs/mkdir",    HTTP_POST, handle_fs_mkdir);
     s_server.on("/api/fs/delete",   HTTP_POST, handle_fs_delete);
+    s_server.on("/api/fs/write",    HTTP_POST, handle_fs_write);
 
     s_server.begin();
     Serial.printf("[HTTP] Server started. Visit http://%s/status\n",

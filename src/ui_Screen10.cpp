@@ -1,14 +1,16 @@
 // Project  : HelpDesk
 // File     : ui_Screen10.cpp
 // Purpose  : DeskDrive — touch-optimised SD card file manager (LVGL 9.x)
-// Depends  : ui.h, ui_Screen10.h, sd_card.h, handshake.h, <SD.h>, <WiFi.h>
+// Depends  : ui.h, ui_Screen10.h, sd_card.h, handshake.h, settings.h, <SD.h>, <WiFi.h>, <HTTPClient.h>
 
 #include "ui.h"
 #include "sd_card.h"
 #include "handshake.h"
+#include "settings.h"
 #include <Arduino.h>
 #include <SD.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 #define SCREEN_W      480
@@ -32,6 +34,11 @@
 #define CLR_OTHER     0x8D99AE
 #define CLR_MUTED     0x64748B
 
+// ── Editor overlay dimensions ─────────────────────────────────────────────────
+#define EDITOR_TA_H   90                               /* textarea height          */
+#define EDITOR_KBD_Y  (HDR_H + EDITOR_TA_H)           /* y where keyboard starts  */
+#define EDITOR_KBD_H  (SCREEN_H - EDITOR_KBD_Y)       /* keyboard height = 194 px */
+
 // ── Per-entry storage (static, no heap per item) ──────────────────────────────
 #define MAX_ENTRIES   64
 #define MAX_PATH_LEN  128
@@ -51,10 +58,24 @@ static char       s_cwd[MAX_PATH_LEN] = "/";
 static lv_obj_t * s_list              = NULL;
 static lv_obj_t * s_path_label        = NULL;
 static lv_obj_t * s_viewer_overlay    = NULL;
+/* Text editor */
+static lv_obj_t * s_editor_ta         = NULL;
+static lv_obj_t * s_editor_kbd        = NULL;
+static char       s_edit_path[MAX_PATH_LEN] = "";
+/* Image conversion */
+static lv_obj_t * s_convert_label     = NULL;
+static char       s_convert_path[MAX_PATH_LEN] = "";
+static bool       s_convert_busy      = false;
+/* PSRAM buffer for binary image viewer */
+static uint8_t *       s_view_img_buf = NULL;
+static lv_image_dsc_t  s_view_img_dsc;
 
 // ── Forward declarations ──────────────────────────────────────────────────────
 static void navigate_to(const char * path);
 static void close_viewer(void);
+static void open_text_editor(const char * path);
+static void open_bin_viewer(const char * path);
+static void open_convert_overlay(const char * path);
 
 // ── File type helpers ─────────────────────────────────────────────────────────
 
@@ -103,7 +124,7 @@ static uint32_t color_for_type(file_type_t t)
     }
 }
 
-// ── Text viewer overlay ───────────────────────────────────────────────────────
+// ── Overlay shared helpers ────────────────────────────────────────────────────
 
 static void viewer_close_ev(lv_event_t * e)
 {
@@ -117,26 +138,46 @@ static void close_viewer(void)
         lv_obj_delete(s_viewer_overlay);
         s_viewer_overlay = NULL;
     }
+    if (s_view_img_buf) { free(s_view_img_buf); s_view_img_buf = NULL; }
+    s_editor_ta     = NULL;
+    s_editor_kbd    = NULL;
+    s_convert_label = NULL;
+    s_edit_path[0]  = '\0';
+    /* s_convert_busy is cleared by convert_done_cb, NOT here, to prevent
+       a second conversion launching while the BG task is still in flight. */
 }
 
-static void open_text_file(const char * path)
+// ── Text editor overlay ───────────────────────────────────────────────────────
+
+static void editor_save_ev(lv_event_t * e)
+{
+    (void)e;
+    if (!s_editor_ta || s_edit_path[0] == '\0') { close_viewer(); return; }
+    const char * text = lv_textarea_get_text(s_editor_ta);
+    if (!text) { close_viewer(); return; }
+    if (SD.exists(s_edit_path)) SD.remove(s_edit_path);
+    File f = SD.open(s_edit_path, FILE_WRITE);
+    if (f) { f.print(text); f.close(); }
+    close_viewer();
+}
+
+static void open_text_editor(const char * path)
 {
     if (!sdCardMounted()) return;
-
     File f = SD.open(path, FILE_READ);
     if (!f) return;
 
-    /* Cap at 8 KB to stay within LVGL's heap */
     size_t len = f.size();
     if (len > 8192) len = 8192;
-
     char * buf = (char *)malloc(len + 1);
     if (!buf) { f.close(); return; }
     f.read((uint8_t *)buf, len);
     buf[len] = '\0';
     f.close();
 
-    /* Fullscreen overlay on top of current screen */
+    strncpy(s_edit_path, path, MAX_PATH_LEN - 1);
+    s_edit_path[MAX_PATH_LEN - 1] = '\0';
+
     s_viewer_overlay = lv_obj_create(ui_Screen10);
     lv_obj_set_size(s_viewer_overlay, SCREEN_W, SCREEN_H);
     lv_obj_set_pos(s_viewer_overlay, 0, 0);
@@ -146,44 +187,219 @@ static void open_text_file(const char * path)
     lv_obj_set_style_border_width(s_viewer_overlay, 0, 0);
     lv_obj_set_style_pad_all(s_viewer_overlay, 0, 0);
 
-    /* Tap header bar to close */
-    lv_obj_t * close_btn = lv_button_create(s_viewer_overlay);
-    lv_obj_set_size(close_btn, SCREEN_W, HDR_H);
-    lv_obj_set_pos(close_btn, 0, 0);
+    /* Header bar */
+    lv_obj_t * hdr = lv_obj_create(s_viewer_overlay);
+    lv_obj_set_size(hdr, SCREEN_W, HDR_H);
+    lv_obj_set_pos(hdr, 0, 0);
+    lv_obj_remove_flag(hdr, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(hdr, lv_color_hex(CLR_HDR), 0);
+    lv_obj_set_style_bg_opa(hdr, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(hdr, 0, 0);
+    lv_obj_set_style_radius(hdr, 0, 0);
+    lv_obj_set_style_pad_all(hdr, 0, 0);
+
+    lv_obj_t * close_btn = lv_button_create(hdr);
+    lv_obj_set_size(close_btn, 44, HDR_H - 4);
+    lv_obj_set_pos(close_btn, 2, 2);
     lv_obj_set_style_bg_color(close_btn, lv_color_hex(CLR_HDR), 0);
-    lv_obj_set_style_bg_color(close_btn, lv_color_hex(CLR_PRESSED),
+    lv_obj_set_style_bg_color(close_btn, lv_color_hex(0x0D1321),
                               LV_PART_MAIN | LV_STATE_PRESSED);
     lv_obj_set_style_border_width(close_btn, 0, 0);
-    lv_obj_set_style_radius(close_btn, 0, 0);
-    lv_obj_set_style_pad_all(close_btn, 6, 0);
+    lv_obj_set_style_shadow_width(close_btn, 0, 0);
+    lv_obj_set_style_pad_all(close_btn, 0, 0);
     lv_obj_add_event_cb(close_btn, viewer_close_ev, LV_EVENT_CLICKED, NULL);
+    lv_obj_t * close_ico = lv_label_create(close_btn);
+    lv_label_set_text(close_ico, LV_SYMBOL_CLOSE);
+    lv_obj_set_style_text_color(close_ico, lv_color_white(), 0);
+    lv_obj_center(close_ico);
 
     const char * fname = strrchr(path, '/');
     fname = fname ? fname + 1 : path;
+    lv_obj_t * name_lbl = lv_label_create(hdr);
+    lv_label_set_text(name_lbl, fname);
+    lv_label_set_long_mode(name_lbl, LV_LABEL_LONG_CLIP);
+    lv_obj_set_size(name_lbl, SCREEN_W - 120, LV_SIZE_CONTENT);
+    lv_obj_set_style_text_color(name_lbl, lv_color_white(), 0);
+    lv_obj_set_style_text_font(name_lbl, &lv_font_montserrat_12, 0);
+    lv_obj_align(name_lbl, LV_ALIGN_CENTER, -25, 0);
 
-    lv_obj_t * hdr_lbl = lv_label_create(close_btn);
-    lv_label_set_text_fmt(hdr_lbl, LV_SYMBOL_CLOSE "  %s", fname);
-    lv_label_set_long_mode(hdr_lbl, LV_LABEL_LONG_CLIP);
-    lv_obj_set_style_text_color(hdr_lbl, lv_color_white(), 0);
-    lv_obj_set_style_text_font(hdr_lbl, &lv_font_montserrat_14, 0);
-    lv_obj_center(hdr_lbl);
+    lv_obj_t * save_btn = lv_button_create(hdr);
+    lv_obj_set_size(save_btn, 62, HDR_H - 4);
+    lv_obj_set_pos(save_btn, SCREEN_W - 64, 2);
+    lv_obj_set_style_bg_color(save_btn, lv_color_hex(0x1A5C1A), 0);
+    lv_obj_set_style_bg_color(save_btn, lv_color_hex(0x2E7D32),
+                              LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(save_btn, 0, 0);
+    lv_obj_set_style_shadow_width(save_btn, 0, 0);
+    lv_obj_set_style_radius(save_btn, 4, 0);
+    lv_obj_add_event_cb(save_btn, editor_save_ev, LV_EVENT_CLICKED, NULL);
+    lv_obj_t * save_lbl = lv_label_create(save_btn);
+    lv_label_set_text(save_lbl, "Save");
+    lv_obj_set_style_text_color(save_lbl, lv_color_hex(0x88FF99), 0);
+    lv_obj_set_style_text_font(save_lbl, &lv_font_montserrat_12, 0);
+    lv_obj_center(save_lbl);
 
-    /* Scrollable read-only text area */
-    lv_obj_t * ta = lv_textarea_create(s_viewer_overlay);
-    lv_obj_set_size(ta, SCREEN_W, SCREEN_H - HDR_H);
-    lv_obj_set_pos(ta, 0, HDR_H);
-    lv_textarea_set_text(ta, buf);
-    lv_textarea_set_cursor_pos(ta, 0);               /* cursor at top */
-    lv_obj_add_state(ta, LV_STATE_DISABLED);          /* read-only */
-    lv_obj_set_style_bg_color(ta, lv_color_hex(0x0D1117), 0);
-    lv_obj_set_style_bg_color(ta, lv_color_hex(0x0D1117), LV_STATE_DISABLED);
-    lv_obj_set_style_text_color(ta, lv_color_hex(0xC9D1D9), 0);
-    lv_obj_set_style_text_color(ta, lv_color_hex(0xC9D1D9), LV_STATE_DISABLED);
-    lv_obj_set_style_text_font(ta, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_border_width(ta, 0, 0);
-    lv_obj_set_style_pad_all(ta, 8, 0);
+    /* Editable textarea */
+    s_editor_ta = lv_textarea_create(s_viewer_overlay);
+    lv_obj_set_size(s_editor_ta, SCREEN_W, EDITOR_TA_H);
+    lv_obj_set_pos(s_editor_ta, 0, HDR_H);
+    lv_textarea_set_text(s_editor_ta, buf);
+    lv_textarea_set_cursor_pos(s_editor_ta, 0);
+    lv_obj_set_style_bg_color(s_editor_ta, lv_color_hex(0x161B22), 0);
+    lv_obj_set_style_text_color(s_editor_ta, lv_color_hex(0xC9D1D9), 0);
+    lv_obj_set_style_text_font(s_editor_ta, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_border_width(s_editor_ta, 0, 0);
+    lv_obj_set_style_pad_all(s_editor_ta, 8, 0);
+
+    /* Keyboard — padding stripped so all 4 rows (incl. spacebar) are visible */
+    s_editor_kbd = lv_keyboard_create(s_viewer_overlay);
+    lv_obj_set_pos(s_editor_kbd, 0, EDITOR_KBD_Y);
+    lv_obj_set_size(s_editor_kbd, SCREEN_W, EDITOR_KBD_H);
+    lv_obj_set_style_pad_top(s_editor_kbd, 0, 0);
+    lv_obj_set_style_pad_bottom(s_editor_kbd, 0, 0);
+    lv_obj_set_style_border_width(s_editor_kbd, 0, 0);
+    lv_obj_set_style_shadow_width(s_editor_kbd, 0, 0);
+    lv_keyboard_set_textarea(s_editor_kbd, s_editor_ta);
 
     free(buf);
+}
+
+// ── Binary image viewer overlay ───────────────────────────────────────────────
+
+static void open_bin_viewer(const char * path)
+{
+    if (!sdCardMounted()) return;
+    File f = SD.open(path, FILE_READ);
+    if (!f) return;
+
+    size_t file_size = f.size();
+    if (file_size <= sizeof(lv_image_header_t)) { f.close(); return; }
+
+    if (s_view_img_buf) { free(s_view_img_buf); s_view_img_buf = NULL; }
+    s_view_img_buf = (uint8_t *)ps_malloc(file_size);
+    if (!s_view_img_buf) { f.close(); return; }
+    f.read(s_view_img_buf, file_size);
+    f.close();
+
+    memset(&s_view_img_dsc, 0, sizeof(s_view_img_dsc));
+    memcpy(&s_view_img_dsc.header, s_view_img_buf, sizeof(lv_image_header_t));
+    s_view_img_dsc.data      = s_view_img_buf + sizeof(lv_image_header_t);
+    s_view_img_dsc.data_size = (uint32_t)(file_size - sizeof(lv_image_header_t));
+
+    s_viewer_overlay = lv_obj_create(ui_Screen10);
+    lv_obj_set_size(s_viewer_overlay, SCREEN_W, SCREEN_H);
+    lv_obj_set_pos(s_viewer_overlay, 0, 0);
+    lv_obj_remove_flag(s_viewer_overlay, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(s_viewer_overlay, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(s_viewer_overlay, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(s_viewer_overlay, 0, 0);
+    lv_obj_set_style_pad_all(s_viewer_overlay, 0, 0);
+
+    lv_obj_t * img = lv_image_create(s_viewer_overlay);
+    lv_image_set_src(img, &s_view_img_dsc);
+    lv_obj_center(img);
+
+    lv_obj_t * close_btn = lv_button_create(s_viewer_overlay);
+    lv_obj_set_size(close_btn, 44, 32);
+    lv_obj_set_pos(close_btn, 4, 4);
+    lv_obj_set_style_bg_color(close_btn, lv_color_make(0, 0, 0), 0);
+    lv_obj_set_style_bg_opa(close_btn, LV_OPA_60, 0);
+    lv_obj_set_style_border_width(close_btn, 0, 0);
+    lv_obj_set_style_shadow_width(close_btn, 0, 0);
+    lv_obj_set_style_radius(close_btn, 6, 0);
+    lv_obj_add_event_cb(close_btn, viewer_close_ev, LV_EVENT_CLICKED, NULL);
+    lv_obj_t * close_ico = lv_label_create(close_btn);
+    lv_label_set_text(close_ico, LV_SYMBOL_CLOSE);
+    lv_obj_set_style_text_color(close_ico, lv_color_white(), 0);
+    lv_obj_center(close_ico);
+}
+
+// ── JPG/PNG → companion-app conversion ───────────────────────────────────────
+
+/* Called from LVGL task via lv_async_call after the BG task finishes. */
+static void convert_done_cb(void * arg)
+{
+    bool ok = (bool)(intptr_t)arg;
+    s_convert_busy = false;
+    if (!ui_Screen10) return;   /* screen was destroyed while task ran */
+    if (ok) {
+        close_viewer();
+        navigate_to(s_cwd);     /* refresh list to show the new .bin */
+    } else if (s_convert_label) {
+        lv_label_set_text(s_convert_label,
+                          LV_SYMBOL_WARNING "  Conversion failed. Check companion app.");
+        lv_obj_set_style_text_color(s_convert_label, lv_color_hex(0xFF5555), 0);
+    }
+}
+
+static void do_convert_task(void * param)
+{
+    (void)param;
+    const char * companion_ip = settingsGetCompanionIP();
+    if (!companion_ip || companion_ip[0] == '\0') {
+        lv_async_call(convert_done_cb, (void *)(intptr_t)0);
+        vTaskDelete(NULL);
+        return;
+    }
+
+    char url[128];
+    snprintf(url, sizeof(url), "http://%s:8080/api/drive/convert", companion_ip);
+
+    String device_ip_str = WiFi.localIP().toString();
+    char body[256];
+    snprintf(body, sizeof(body),
+             "{\"path\":\"%s\",\"device_ip\":\"%s\"}",
+             s_convert_path, device_ip_str.c_str());
+
+    HTTPClient http;
+    http.begin(url);
+    http.addHeader("Content-Type", "application/json");
+    http.setTimeout(30000);
+    int code = http.POST(body);
+    http.end();
+
+    lv_async_call(convert_done_cb, (void *)(intptr_t)(code == 200 ? 1 : 0));
+    vTaskDelete(NULL);
+}
+
+static void open_convert_overlay(const char * path)
+{
+    if (s_convert_busy) return;
+    s_convert_busy = true;
+    strncpy(s_convert_path, path, MAX_PATH_LEN - 1);
+    s_convert_path[MAX_PATH_LEN - 1] = '\0';
+
+    s_viewer_overlay = lv_obj_create(ui_Screen10);
+    lv_obj_set_size(s_viewer_overlay, SCREEN_W, SCREEN_H);
+    lv_obj_set_pos(s_viewer_overlay, 0, 0);
+    lv_obj_remove_flag(s_viewer_overlay, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(s_viewer_overlay, lv_color_hex(0x0D1117), 0);
+    lv_obj_set_style_bg_opa(s_viewer_overlay, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(s_viewer_overlay, 0, 0);
+    lv_obj_set_style_pad_all(s_viewer_overlay, 0, 0);
+
+    s_convert_label = lv_label_create(s_viewer_overlay);
+    lv_label_set_text(s_convert_label,
+                      LV_SYMBOL_UPLOAD "  Sending to companion app for conversion...");
+    lv_label_set_long_mode(s_convert_label, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(s_convert_label, SCREEN_W - 40);
+    lv_obj_set_style_text_color(s_convert_label, lv_color_hex(CLR_ACCENT), 0);
+    lv_obj_set_style_text_font(s_convert_label, &lv_font_montserrat_14, 0);
+    lv_obj_center(s_convert_label);
+
+    lv_obj_t * close_btn = lv_button_create(s_viewer_overlay);
+    lv_obj_set_size(close_btn, 44, 32);
+    lv_obj_set_pos(close_btn, 4, 4);
+    lv_obj_set_style_bg_color(close_btn, lv_color_hex(CLR_HDR), 0);
+    lv_obj_set_style_border_width(close_btn, 0, 0);
+    lv_obj_set_style_shadow_width(close_btn, 0, 0);
+    lv_obj_add_event_cb(close_btn, viewer_close_ev, LV_EVENT_CLICKED, NULL);
+    lv_obj_t * close_ico = lv_label_create(close_btn);
+    lv_label_set_text(close_ico, LV_SYMBOL_CLOSE);
+    lv_obj_set_style_text_color(close_ico, lv_color_white(), 0);
+    lv_obj_center(close_ico);
+
+    xTaskCreate(do_convert_task, "cvt", 8192, NULL, 1, NULL);
 }
 
 // ── List item event ───────────────────────────────────────────────────────────
@@ -193,20 +409,34 @@ static void file_item_ev(lv_event_t * e)
     int idx = (int)(intptr_t)lv_event_get_user_data(e);
     if (idx < 0 || idx >= s_entry_count) return;
 
-    /* Copy before navigate_to() may rebuild s_entries */
     bool is_dir = s_entries[idx].is_dir;
     char path_copy[MAX_PATH_LEN];
     strncpy(path_copy, s_entries[idx].path, MAX_PATH_LEN - 1);
     path_copy[MAX_PATH_LEN - 1] = '\0';
 
-    if (is_dir) {
-        navigate_to(path_copy);
-    } else {
-        if (get_file_type(path_copy, false) == FTYPE_TEXT) {
-            open_text_file(path_copy);
-        }
-        /* Future: image viewer, audio launcher */
+    if (is_dir) { navigate_to(path_copy); return; }
+
+    file_type_t t = get_file_type(path_copy, false);
+
+    if (t == FTYPE_TEXT) {
+        open_text_editor(path_copy);
+        return;
     }
+
+    if (t == FTYPE_IMAGE) {
+        const char * dot = strrchr(path_copy, '.');
+        if (!dot) return;
+        char ext[8] = {};
+        int  i = 0;
+        const char * p = dot + 1;
+        while (*p && i < 7) ext[i++] = (char)tolower((unsigned char)*p++);
+        if (strcmp(ext, "bin") == 0) {
+            open_bin_viewer(path_copy);
+        } else {
+            open_convert_overlay(path_copy);    /* jpg / jpeg / png / bmp */
+        }
+    }
+    /* FTYPE_AUDIO: future — pass to JukeDesk */
 }
 
 // ── Up / Back button ──────────────────────────────────────────────────────────
@@ -454,7 +684,13 @@ void ui_Screen10_screen_destroy(void)
     s_list           = NULL;
     s_path_label     = NULL;
     s_viewer_overlay = NULL;
+    s_editor_ta      = NULL;
+    s_editor_kbd     = NULL;
+    s_convert_label  = NULL;
     s_entry_count    = 0;
+    s_edit_path[0]   = '\0';
+    s_convert_busy   = false;
+    if (s_view_img_buf) { free(s_view_img_buf); s_view_img_buf = NULL; }
     if (ui_Screen10) lv_obj_delete(ui_Screen10);
     ui_Screen10 = NULL;
 }
