@@ -9,6 +9,7 @@
 
 #include "display_Screen.h"
 #include "wifi_connect.h"
+#include "wifi_status.h"
 #include "buzzer.h"
 #include "sd_card.h"
 #include "settings.h"
@@ -74,9 +75,8 @@ void setup()
     // 2b. ZenFrame: scan /images playlist (ui_ZenImage may be NULL until Screen6 opens)
     zenFrameInit();
 
-    // 3. Network: connect once; feature modules rely on this
+    // 3. Network: start connection in background; UI is already visible
     connectToWiFi();
-    Serial.println("[HelpDesk] WiFi connected.");
 
     // 4. Feature module init
     initNTP();
@@ -86,12 +86,9 @@ void setup()
     taskMasterInit();
     voiceInputInit();
 
-    // 5. HTTP server and handshake -- must start after WiFi
-    if (WiFi.status() == WL_CONNECTED) {
-        httpServerInit();
-    }
-    // Handshake always fires (sends hello with 0.0.0.0 if offline; companion ignores it)
+    // 5. Handshake — fires immediately (sends IP 0.0.0.0 if offline; companion ignores it)
     handshakeInit();
+    // HTTP server is deferred to loop() — started there once WiFi comes up
 
     Serial.println("[HelpDesk] Init complete. Entering loop.");
 }
@@ -126,6 +123,15 @@ void loop()
     handleHandshake(now);
     handleNotifications(now);
     handleVoiceInput(now);
+    wifiHandleConnection(now);
+
+    // Start HTTP server once (the first loop tick after WiFi connects)
+    static bool s_http_started = false;
+    if (!s_http_started && wifiJustConnected()) {
+        httpServerInit();
+        s_http_started = true;
+    }
+
     httpServerLoop();
 
     // 5 ms yield keeps the LVGL timer accurate without blocking touch input

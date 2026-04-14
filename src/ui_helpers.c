@@ -98,6 +98,85 @@ void _ui_flag_modify(lv_obj_t * target, int32_t flag, int value)
     else if(value == _UI_MODIFY_FLAG_ADD) lv_obj_add_flag(target, flag);
     else lv_obj_remove_flag(target, flag);
 }
+
+/* ── Keyboard space-map helper ─────────────────────────────────────────────── */
+/* LV_KB_BTN is defined only in lv_keyboard.c; re-define locally. */
+#define _UI_KB_BTN(w) (LV_BUTTONMATRIX_CTRL_POPOVER | (w))
+
+/* The mode-switch string tokens are also private to lv_keyboard.c.
+   Mirror their literal values here (verified from lvgl 9.2 source). */
+#define _KB_SPECIAL   "1#"
+#define _KB_UPPER     "ABC"
+#define _KB_LOWER     "abc"
+
+/* Custom lowercase map: row-3 bottom-left key changed from '_' to ' '. */
+static const char * const s_kb_map_lc[] = {
+    _KB_SPECIAL,
+    "q","w","e","r","t","y","u","i","o","p", LV_SYMBOL_BACKSPACE, "\n",
+    _KB_UPPER,
+    "a","s","d","f","g","h","j","k","l", LV_SYMBOL_NEW_LINE, "\n",
+    " ", "-", "z","x","c","v","b","n","m",".",",",":", "\n",
+    LV_SYMBOL_KEYBOARD, LV_SYMBOL_LEFT, " ", LV_SYMBOL_RIGHT, LV_SYMBOL_OK, ""
+};
+static const lv_buttonmatrix_ctrl_t s_kb_ctrl_lc[] = {
+    LV_KEYBOARD_CTRL_BUTTON_FLAGS|5,
+    _UI_KB_BTN(4),_UI_KB_BTN(4),_UI_KB_BTN(4),_UI_KB_BTN(4),_UI_KB_BTN(4),
+    _UI_KB_BTN(4),_UI_KB_BTN(4),_UI_KB_BTN(4),_UI_KB_BTN(4),_UI_KB_BTN(4),
+    LV_BUTTONMATRIX_CTRL_CHECKED|7,
+    LV_KEYBOARD_CTRL_BUTTON_FLAGS|6,
+    _UI_KB_BTN(3),_UI_KB_BTN(3),_UI_KB_BTN(3),_UI_KB_BTN(3),_UI_KB_BTN(3),
+    _UI_KB_BTN(3),_UI_KB_BTN(3),_UI_KB_BTN(3),_UI_KB_BTN(3),
+    LV_BUTTONMATRIX_CTRL_CHECKED|7,
+    /* row 3: space (was _), -, z..m, ., ',', : */
+    _UI_KB_BTN(1), LV_BUTTONMATRIX_CTRL_CHECKED|_UI_KB_BTN(1),
+    _UI_KB_BTN(1),_UI_KB_BTN(1),_UI_KB_BTN(1),_UI_KB_BTN(1),_UI_KB_BTN(1),
+    _UI_KB_BTN(1),_UI_KB_BTN(1),
+    LV_BUTTONMATRIX_CTRL_CHECKED|_UI_KB_BTN(1),
+    LV_BUTTONMATRIX_CTRL_CHECKED|_UI_KB_BTN(1),
+    LV_BUTTONMATRIX_CTRL_CHECKED|_UI_KB_BTN(1),
+    /* row 4: keyboard-toggle, left, space(6), right, ok */
+    LV_KEYBOARD_CTRL_BUTTON_FLAGS|2,
+    LV_BUTTONMATRIX_CTRL_CHECKED|2, 6,
+    LV_BUTTONMATRIX_CTRL_CHECKED|2,
+    LV_KEYBOARD_CTRL_BUTTON_FLAGS|2
+};
+
+static const char * const s_kb_map_uc[] = {
+    _KB_SPECIAL,
+    "Q","W","E","R","T","Y","U","I","O","P", LV_SYMBOL_BACKSPACE, "\n",
+    _KB_LOWER,
+    "A","S","D","F","G","H","J","K","L", LV_SYMBOL_NEW_LINE, "\n",
+    " ", "-", "Z","X","C","V","B","N","M",".",",",":", "\n",
+    LV_SYMBOL_CLOSE, LV_SYMBOL_LEFT, " ", LV_SYMBOL_RIGHT, LV_SYMBOL_OK, ""
+};
+static const lv_buttonmatrix_ctrl_t s_kb_ctrl_uc[] = {
+    LV_KEYBOARD_CTRL_BUTTON_FLAGS|5,
+    _UI_KB_BTN(4),_UI_KB_BTN(4),_UI_KB_BTN(4),_UI_KB_BTN(4),_UI_KB_BTN(4),
+    _UI_KB_BTN(4),_UI_KB_BTN(4),_UI_KB_BTN(4),_UI_KB_BTN(4),_UI_KB_BTN(4),
+    LV_BUTTONMATRIX_CTRL_CHECKED|7,
+    LV_KEYBOARD_CTRL_BUTTON_FLAGS|6,
+    _UI_KB_BTN(3),_UI_KB_BTN(3),_UI_KB_BTN(3),_UI_KB_BTN(3),_UI_KB_BTN(3),
+    _UI_KB_BTN(3),_UI_KB_BTN(3),_UI_KB_BTN(3),_UI_KB_BTN(3),
+    LV_BUTTONMATRIX_CTRL_CHECKED|7,
+    _UI_KB_BTN(1), LV_BUTTONMATRIX_CTRL_CHECKED|_UI_KB_BTN(1),
+    _UI_KB_BTN(1),_UI_KB_BTN(1),_UI_KB_BTN(1),_UI_KB_BTN(1),_UI_KB_BTN(1),
+    _UI_KB_BTN(1),_UI_KB_BTN(1),
+    LV_BUTTONMATRIX_CTRL_CHECKED|_UI_KB_BTN(1),
+    LV_BUTTONMATRIX_CTRL_CHECKED|_UI_KB_BTN(1),
+    LV_BUTTONMATRIX_CTRL_CHECKED|_UI_KB_BTN(1),
+    LV_KEYBOARD_CTRL_BUTTON_FLAGS|2,
+    LV_BUTTONMATRIX_CTRL_CHECKED|2, 6,
+    LV_BUTTONMATRIX_CTRL_CHECKED|2,
+    LV_KEYBOARD_CTRL_BUTTON_FLAGS|2
+};
+
+/* Apply the space-mapped keyboard layouts to a keyboard widget. Call once
+   after lv_keyboard_create() on any keyboard that needs the fix.           */
+void ui_kbd_apply_space_map(lv_obj_t * kbd)
+{
+    lv_keyboard_set_map(kbd, LV_KEYBOARD_MODE_TEXT_LOWER, s_kb_map_lc, s_kb_ctrl_lc);
+    lv_keyboard_set_map(kbd, LV_KEYBOARD_MODE_TEXT_UPPER, s_kb_map_uc, s_kb_ctrl_uc);
+}
 void _ui_state_modify(lv_obj_t * target, int32_t state, int value)
 {
     if(value == _UI_MODIFY_STATE_TOGGLE) {

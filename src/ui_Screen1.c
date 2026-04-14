@@ -6,6 +6,7 @@
 #include "ui.h"
 #include "handshake.h"
 #include "notifications.h"
+#include "wifi_status.h"
 
 /* ── Layout constants ──────────────────────────────────────── */
 #define SCREEN_W       480
@@ -48,7 +49,19 @@ static const app_tile_t k_apps[] = {
 lv_obj_t * ui_Screen1    = NULL;
 lv_obj_t * ui_NotifTile  = NULL;   /* Notifications tile — flashed by notifications.cpp */
 lv_obj_t * ui_NotifBadge = NULL;   /* Unread count badge on that tile */
+/* ── Private WiFi icon state ───────────────────────── */
+static lv_obj_t  * s_wifi_icon  = NULL;
+static lv_timer_t * s_wifi_timer = NULL;
 
+static void wifi_icon_timer_cb(lv_timer_t * t)
+{
+    (void)t;
+    if (!s_wifi_icon) return;
+    lv_color_t c = wifiIsConnected()
+        ? lv_color_hex(0x4CAF50)   /* green  — connected    */
+        : lv_color_hex(0x555566);  /* muted  — offline      */
+    lv_obj_set_style_text_color(s_wifi_icon, c, 0);
+}
 /* ── Event callbacks ───────────────────────────────────────── */
 static void tile_clicked_ev(lv_event_t * e)
 {
@@ -81,6 +94,13 @@ static void build_header(lv_obj_t * scr)
     lv_label_set_text(title, "HelpDesk");
     lv_obj_set_style_text_color(title, lv_color_white(), 0);
     lv_obj_center(title);
+
+    /* WiFi status icon — left side of header */
+    s_wifi_icon = lv_label_create(hdr);
+    lv_label_set_text(s_wifi_icon, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_color(s_wifi_icon, lv_color_hex(0x555566), 0); /* muted until connected */
+    lv_obj_set_style_text_font(s_wifi_icon, &lv_font_montserrat_12, 0);
+    lv_obj_align(s_wifi_icon, LV_ALIGN_LEFT_MID, 8, 0);
 
     /* Settings gear button — upper-right corner */
     lv_obj_t * gear_btn = lv_button_create(hdr);
@@ -180,10 +200,16 @@ void ui_Screen1_screen_init(void)
 
     build_header(ui_Screen1);
     build_tile_grid(ui_Screen1);
+
+    /* Periodic WiFi icon update — checks every 2 s while launcher is visible */
+    s_wifi_timer = lv_timer_create(wifi_icon_timer_cb, 2000, NULL);
+    wifi_icon_timer_cb(NULL);   /* apply correct colour immediately */
 }
 
 void ui_Screen1_screen_destroy(void)
 {
+    s_wifi_icon = NULL;
+    if (s_wifi_timer) { lv_timer_delete(s_wifi_timer); s_wifi_timer = NULL; }
     ui_NotifTile  = NULL;
     ui_NotifBadge = NULL;
     if(ui_Screen1) lv_obj_delete(ui_Screen1);

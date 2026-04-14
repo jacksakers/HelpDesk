@@ -1,9 +1,10 @@
 ﻿// Project  : HelpDesk
 // File     : wifi_connect.cpp
 // Purpose  : WiFi connection -- implementation
-// Depends  : wifi_connect.h, settings.h, Arduino.h
+// Depends  : wifi_connect.h, wifi_status.h, settings.h, Arduino.h
 
 #include "wifi_connect.h"
+#include "wifi_status.h"
 #include "settings.h"
 #include <Arduino.h>
 
@@ -21,11 +22,14 @@
 const char * wifi_ssid     = HELPDESK_DEFAULT_WIFI_SSID;
 const char * wifi_password = HELPDESK_DEFAULT_WIFI_PASSWORD;
 
-// --- Timeout -----------------------------------------------------------------
-#define WIFI_CONNECT_TIMEOUT_MS 15000UL
+// --- Private state -----------------------------------------------------------
+static bool s_was_connected   = false;
+static bool s_just_connected  = false;  /* true for exactly one wifiHandleConnection tick */
 
 // --- Implementation ----------------------------------------------------------
 
+/* Non-blocking: fires off WiFi.begin() and returns immediately.
+   The UI loads before the connection completes.                               */
 void connectToWiFi()
 {
     /* Prefer credentials saved via the companion app; fall back to compile-time defaults. */
@@ -35,25 +39,44 @@ void connectToWiFi()
     if (!pass || pass[0] == '\0') { pass = HELPDESK_DEFAULT_WIFI_PASSWORD; }
 
     if (!ssid || ssid[0] == '\0') {
-        Serial.println("[WiFi] No SSID configured. Set credentials via the companion app.");
+        Serial.println("[WiFi] No SSID configured — skipping. Set credentials via companion app.");
         return;
     }
 
-    Serial.print("[WiFi] Connecting to: ");
+    Serial.print("[WiFi] Starting background connection to: ");
     Serial.println(ssid);
-
     WiFi.begin(ssid, pass);
+}
 
-    unsigned long start = millis();
-    while(WiFi.status() != WL_CONNECTED) {
-        if(millis() - start >= WIFI_CONNECT_TIMEOUT_MS) {
-            Serial.println("\n[WiFi] Connection timed out. Continuing offline.");
-            return;
-        }
-        delay(500);
-        Serial.print(".");
+// --- Status API (extern "C" so these are callable from C files) --------------
+
+extern "C" bool wifiIsConnected(void)
+{
+    return WiFi.status() == WL_CONNECTED;
+}
+
+extern "C" bool wifiJustConnected(void)
+{
+    bool val = s_just_connected;
+    s_just_connected = false;   /* consume the one-shot flag */
+    return val;
+}
+
+extern "C" void wifiHandleConnection(unsigned long now)
+{
+    static unsigned long s_last_check = 0;
+    if (now - s_last_check < 1000UL) return;
+    s_last_check = now;
+
+    bool connected = (WiFi.status() == WL_CONNECTED);
+
+    if (connected && !s_was_connected) {
+        Serial.printf("[WiFi] Connected. IP: %s\n", WiFi.localIP().toString().c_str());
+        s_was_connected  = true;
+        s_just_connected = true;
+    } else if (!connected && s_was_connected) {
+        Serial.println("[WiFi] Disconnected.");
+        s_was_connected  = false;
+        s_just_connected = false;
     }
-
-    Serial.print("\n[WiFi] Connected. IP: ");
-    Serial.println(WiFi.localIP());
 }

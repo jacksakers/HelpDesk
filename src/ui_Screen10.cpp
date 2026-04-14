@@ -35,9 +35,9 @@
 #define CLR_MUTED     0x64748B
 
 // ── Editor overlay dimensions ─────────────────────────────────────────────────
-#define EDITOR_TA_H   90                               /* textarea height          */
+#define EDITOR_TA_H   110                              /* textarea height          */
 #define EDITOR_KBD_Y  (HDR_H + EDITOR_TA_H)           /* y where keyboard starts  */
-#define EDITOR_KBD_H  (SCREEN_H - EDITOR_KBD_Y)       /* keyboard height = 194 px */
+#define EDITOR_KBD_H  (SCREEN_H - EDITOR_KBD_Y)       /* keyboard height = 174 px */
 
 // ── Per-entry storage (static, no heap per item) ──────────────────────────────
 #define MAX_ENTRIES   64
@@ -251,15 +251,14 @@ static void open_text_editor(const char * path)
     lv_obj_set_style_border_width(s_editor_ta, 0, 0);
     lv_obj_set_style_pad_all(s_editor_ta, 8, 0);
 
-    /* Keyboard — padding stripped so all 4 rows (incl. spacebar) are visible */
+    /* Keyboard */
     s_editor_kbd = lv_keyboard_create(s_viewer_overlay);
     lv_obj_set_pos(s_editor_kbd, 0, EDITOR_KBD_Y);
     lv_obj_set_size(s_editor_kbd, SCREEN_W, EDITOR_KBD_H);
-    lv_obj_set_style_pad_top(s_editor_kbd, 0, 0);
-    lv_obj_set_style_pad_bottom(s_editor_kbd, 0, 0);
     lv_obj_set_style_border_width(s_editor_kbd, 0, 0);
     lv_obj_set_style_shadow_width(s_editor_kbd, 0, 0);
     lv_keyboard_set_textarea(s_editor_kbd, s_editor_ta);
+    ui_kbd_apply_space_map(s_editor_kbd);
 
     free(buf);
 }

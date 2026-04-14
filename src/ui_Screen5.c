@@ -346,9 +346,10 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     lv_obj_set_style_pad_all(s_kbd_overlay, 0, 0);
     lv_obj_add_flag(s_kbd_overlay, LV_OBJ_FLAG_HIDDEN);
 
+    /* ── Row 0: input bar (y=3, h=34) ── */
     ui_TaskInputArea = lv_textarea_create(s_kbd_overlay);
-    lv_obj_set_size(ui_TaskInputArea, 330, 30);
-    lv_obj_set_pos(ui_TaskInputArea, 4, 4);
+    lv_obj_set_size(ui_TaskInputArea, 330, 34);
+    lv_obj_set_pos(ui_TaskInputArea, 4, 3);
     lv_textarea_set_one_line(ui_TaskInputArea, true);
     lv_textarea_set_placeholder_text(ui_TaskInputArea, "What needs doing?");
     lv_obj_set_style_bg_color(ui_TaskInputArea, lv_color_hex(CLR_INPUT_BG), 0);
@@ -356,10 +357,13 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     lv_obj_set_style_border_color(ui_TaskInputArea, lv_color_hex(CLR_ACCENT), 0);
     lv_obj_set_style_border_width(ui_TaskInputArea, 1, 0);
     lv_obj_set_style_radius(ui_TaskInputArea, 6, 0);
+    lv_obj_set_style_pad_hor(ui_TaskInputArea, 6, 0);
+    lv_obj_set_style_pad_ver(ui_TaskInputArea, 3, 0);
+    lv_obj_set_style_shadow_width(ui_TaskInputArea, 0, 0);
 
     lv_obj_t *cancel_btn = lv_button_create(s_kbd_overlay);
-    lv_obj_set_size(cancel_btn, 64, 30);
-    lv_obj_set_pos(cancel_btn, 338, 4);
+    lv_obj_set_size(cancel_btn, 64, 34);
+    lv_obj_set_pos(cancel_btn, 338, 3);
     lv_obj_set_style_bg_color(cancel_btn, lv_color_hex(0x442222), 0);
     lv_obj_set_style_border_width(cancel_btn, 0, 0);
     lv_obj_set_style_radius(cancel_btn, 6, 0);
@@ -371,8 +375,8 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     lv_obj_center(cancel_lbl);
 
     lv_obj_t *confirm_btn = lv_button_create(s_kbd_overlay);
-    lv_obj_set_size(confirm_btn, 64, 30);
-    lv_obj_set_pos(confirm_btn, 406, 4);
+    lv_obj_set_size(confirm_btn, 64, 34);
+    lv_obj_set_pos(confirm_btn, 406, 3);
     lv_obj_set_style_bg_color(confirm_btn, lv_color_hex(0x224422), 0);
     lv_obj_set_style_border_width(confirm_btn, 0, 0);
     lv_obj_set_style_radius(confirm_btn, 6, 0);
@@ -383,9 +387,10 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     lv_obj_set_style_text_color(confirm_lbl, lv_color_hex(0x66FF66), 0);
     lv_obj_center(confirm_lbl);
 
+    /* ── Row 1: repeat toggle (y=42, h=24) — clear gap below input bar ── */
     s_repeat_btn = lv_button_create(s_kbd_overlay);
-    lv_obj_set_size(s_repeat_btn, 160, 22);
-    lv_obj_set_pos(s_repeat_btn, 4, 38);
+    lv_obj_set_size(s_repeat_btn, 160, 24);
+    lv_obj_set_pos(s_repeat_btn, 4, 42);
     lv_obj_set_style_bg_color(s_repeat_btn, lv_color_hex(0x334455), 0);
     lv_obj_set_style_border_width(s_repeat_btn, 0, 0);
     lv_obj_set_style_radius(s_repeat_btn, 6, 0);
@@ -397,19 +402,16 @@ static void build_keyboard_overlay(lv_obj_t *scr)
     lv_obj_set_style_text_font(rep_lbl, &lv_font_montserrat_10, 0);
     lv_obj_center(rep_lbl);
 
+    /* ── Keyboard (y=70, h=250) ── */
     s_kbd = lv_keyboard_create(s_kbd_overlay);
-    lv_obj_set_pos(s_kbd, 0, 62);
-    lv_obj_set_size(s_kbd, SCREEN_W, SCREEN_H - 64);
-    /* Strip default theme padding/border so the button matrix gets the full
-       height to distribute across all 4 rows (including the spacebar row).
-       Without this the container padding squeezes row 4 to 0 px in landscape. */
-    lv_obj_set_style_pad_top(s_kbd, 0, 0);
-    lv_obj_set_style_pad_bottom(s_kbd, 0, 0);
+    lv_obj_set_pos(s_kbd, 0, 70);
+    lv_obj_set_size(s_kbd, SCREEN_W, SCREEN_H - 70);
     lv_obj_set_style_border_width(s_kbd, 0, 0);
     lv_obj_set_style_shadow_width(s_kbd, 0, 0);
     lv_keyboard_set_textarea(s_kbd, ui_TaskInputArea);
     lv_obj_add_event_cb(s_kbd, kbd_ready_ev, LV_EVENT_READY, NULL);
     lv_obj_add_event_cb(s_kbd, cancel_kbd_ev, LV_EVENT_CANCEL, NULL);
+    ui_kbd_apply_space_map(s_kbd);
 }
 
 /* ── Public lifecycle ──────────────────────────────────────── */

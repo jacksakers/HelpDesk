@@ -73,6 +73,10 @@ void _ui_textarea_move_cursor(lv_obj_t * target, int val)
 
 void scr_unloaded_delete_cb(lv_event_t * e);
 
+/* Apply a custom keyboard map that replaces the bottom-left '_' key with a
+   space key.  Call once after lv_keyboard_create() on any text keyboard.   */
+void ui_kbd_apply_space_map(lv_obj_t * kbd);
+
 void _ui_opacity_set(lv_obj_t * target, int val);
 
 /** Describes an animation*/
