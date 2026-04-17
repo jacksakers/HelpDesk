@@ -13,17 +13,27 @@
 #include <SD.h>
 
 // ── LoRa Pin Configuration ────────────────────────────────────────────────────
-// ┌─────────────────────────────────────────────────────────────────────────┐
-// │  TODO: Verify these GPIO numbers against your Elecrow CrowPanel LoRa   │
-// │  extension header before building.  Pins 4/5/6 = SD MISO/CLK/MOSI.    │
-// │                                                                         │
-// │  OPTION A (default): LoRa on its OWN header with dedicated SPI pins.   │
-// │  Set LORA_USE_SD_SPI 0 and fill in the header GPIO numbers here.       │
-// │                                                                         │
-// │  OPTION B: LoRa drop-in shares SD SPI bus (same physical traces).      │
-// │  Set LORA_USE_SD_SPI 1; only change NSS, DIO1, RST, BUSY.              │
-// └─────────────────────────────────────────────────────────────────────────┘
-#define LORA_USE_SD_SPI   0   /* 0 = own SPI; 1 = share HSPI with SD card */
+// Wired to the Elecrow CrowPanel wireless module header (2×7, 14-pin)
+// using jumper wires.  The SX1262 has 16 pins; 9 data lines used + power/GND.
+//
+//  SX1262 pin  →  Elecrow header  (ESP32-S3 GPIO)
+//  ─────────────────────────────────────────────
+//  3V3         →  3V3  (power)
+//  GND         →  GND
+//  CLK         →  IO9   (SPI clock)
+//  MOSI        →  IO10  (SPI MOSI)
+//  MISO        →  IO1   (SPI MISO)
+//  CS          →  IO3   (chip-select / NSS)
+//  DIO1        →  IO2   (interrupt — fires when packet arrives)
+//  BUSY        →  IO15  (HIGH while radio is processing)
+//  RESET       →  IO16  (active-low reset)
+//  TXEn        →  IO0   (antenna switch TX enable)
+//  RXEn        →  IO46  (antenna switch RX enable)
+//
+//  ANTENNA: screw the antenna on BEFORE powering up — transmitting without
+//  one reflects energy back into the chip and permanently destroys it.
+
+#define LORA_USE_SD_SPI   0   /* 0 = own dedicated SPI on the Elecrow header */
 
 #if LORA_USE_SD_SPI
   // Shared SPI bus — same SCK/MISO/MOSI as SD card; only control pins differ
@@ -31,15 +41,19 @@
   #define LORA_DIO1   17   /* Interrupt / data-ready                */
   #define LORA_RST    18   /* Active-low reset                      */
   #define LORA_BUSY   21   /* BUSY signal: HIGH while chip is busy  */
+  #define LORA_TX_EN  RADIOLIB_NC
+  #define LORA_RX_EN  RADIOLIB_NC
 #else
-  // Dedicated SPI — all pins on the LoRa extension header
-  #define LORA_MOSI   33   /* SPI MOSI                              */
-  #define LORA_MISO   34   /* SPI MISO                              */
-  #define LORA_SCK    40   /* SPI clock                             */
-  #define LORA_NSS    41   /* Chip-select                           */
-  #define LORA_DIO1   17   /* Interrupt / data-ready                */
-  #define LORA_RST    18   /* Active-low reset                      */
-  #define LORA_BUSY   21   /* BUSY signal                           */
+  // Dedicated SPI — mapped to the Elecrow wireless module header
+  #define LORA_SCK    9    /* CLK  → IO9                            */
+  #define LORA_MOSI   10   /* MOSI → IO10                           */
+  #define LORA_MISO   1    /* MISO → IO1                            */
+  #define LORA_NSS    3    /* CS   → IO3                            */
+  #define LORA_DIO1   2    /* DIO1 → IO2  (RX-done interrupt)       */
+  #define LORA_BUSY   15   /* BUSY → IO15                           */
+  #define LORA_RST    16   /* RST  → IO16                           */
+  #define LORA_TX_EN  0    /* TXEn → IO0  (antenna switch)          */
+  #define LORA_RX_EN  46   /* RXEn → IO46 (antenna switch)          */
 #endif
 
 // ── LoRa Radio Parameters ─────────────────────────────────────────────────────
@@ -238,9 +252,10 @@ void deskChatInit(void)
                                 LORA_SYNC_WORD, LORA_POWER_DBM,
                                 LORA_PREAMBLE_LEN, LORA_TCXO_V);
     if (state == RADIOLIB_ERR_NONE) {
-        /* Some SX1262 modules (e.g. Heltec V3) need DIO2 as RF-switch driver.
-           Uncomment if TX never completes:
-           s_radio->setDio2AsRfSwitch(true);                                  */
+        /* Tell RadioLib to drive the antenna switch automatically.            */
+        /* RADIOLIB_NC means "not connected" — safe to pass for shared-bus    */
+        /* mode where we didn't wire TXEn/RXEn.                               */
+        s_radio->setRfSwitchPins(LORA_RX_EN, LORA_TX_EN);
 
         attachInterrupt(digitalPinToInterrupt(LORA_DIO1), rx_isr, RISING);
         s_radio->startReceive();
