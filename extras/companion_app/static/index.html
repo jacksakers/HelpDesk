@@ -33,6 +33,7 @@
         <button id="tab-btn-tasks"    onclick="showTab('tasks')"    class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">Tasks</button>
         <button id="tab-btn-media"    onclick="showTab('media')"    class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">Media</button>
         <button id="tab-btn-drive"    onclick="showTab('drive')"    class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">Drive</button>
+        <button id="tab-btn-chat"     onclick="showTab('chat')"     class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">&#x1F4AC; DeskChat</button>
         <button id="tab-btn-settings" onclick="showTab('settings')" class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">Settings</button>
     </div>
 
@@ -362,8 +363,38 @@
     </div>
 
 </div>
-<script>
-const TABS = ['status','tasks','media','drive','settings'];
+
+    <!-- CHAT TAB -->
+    <div id="tab-chat" class="hidden space-y-4">
+        <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-semibold text-emerald-400">&#x1F4F6; DeskChat  &mdash; LoRa Group Chat</h2>
+                <div class="flex items-center gap-2">
+                    <span id="chat-observe-label" class="text-xs text-gray-500"></span>
+                    <span id="chat-rssi" class="text-xs font-mono text-emerald-400"></span>
+                </div>
+            </div>
+            <!-- Message log -->
+            <div id="chat-log" class="h-80 overflow-y-auto bg-gray-900 rounded-lg p-3 space-y-2 font-mono text-sm border border-gray-700">
+                <p class="text-gray-600 italic text-xs">Messages will appear here...</p>
+            </div>
+            <!-- Compose row -->
+            <div class="flex gap-2 mt-3">
+                <input id="chat-input" type="text" maxlength="160"
+                       placeholder="Type a message and press Enter or Send..."
+                       class="flex-1 bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+                       onkeydown="if(event.key==='Enter') chatSend()" />
+                <button onclick="chatSend()"
+                        class="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 rounded-lg text-sm font-medium text-white transition">
+                    Send
+                </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Messages are broadcast over LoRa from the HelpDesk device. Your PC is the relay.</p>
+        </div>
+    </div>
+
+</div>
+const TABS = ['status','tasks','media','drive','chat','settings'];
 function showTab(name) {
     TABS.forEach(t => {
         document.getElementById('tab-'+t).classList.toggle('hidden', t !== name);
@@ -506,6 +537,8 @@ function connectWs() {
         if(msg.type==='device_status') updateDeviceStatus(msg);
         if(msg.type==='serial_status') setIndicator('serial',msg.connected,'HelpDesk');
         if(msg.type==='serial_log')    logSerialEvent(msg.label||'');
+        if(msg.type==='lora_msg')      chatReceive(msg);
+        if(msg.type==='lora_raw')      chatReceiveRaw(msg);
     };
     ws.onclose = ()=>{ setIndicator('ws',false,'Dashboard'); setIndicator('serial',false,'HelpDesk'); setTimeout(connectWs,2000); };
 }
@@ -914,6 +947,78 @@ function openImageViewer(path) {
 function closeImageViewer() {
     document.getElementById('image-viewer-modal').classList.add('hidden');
     document.getElementById('image-viewer-img').src = '';
+}
+
+// ── DeskChat ────────────────────────────────────────────────────────────────
+const MAX_CHAT_BUBBLES = 200;
+let _chatBubbleCount = 0;
+
+function _chatAppend(html) {
+    const log = document.getElementById('chat-log');
+    if (!log) return;
+    // Clear placeholder on first real message
+    if (_chatBubbleCount === 0) log.innerHTML = '';
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    log.appendChild(div.firstChild);
+    _chatBubbleCount++;
+    // Trim oldest when over limit
+    while (_chatBubbleCount > MAX_CHAT_BUBBLES && log.firstChild) {
+        log.removeChild(log.firstChild);
+        _chatBubbleCount--;
+    }
+    log.scrollTop = log.scrollHeight;
+}
+
+function chatReceive(msg) {
+    const user = msg.user || 'Anon';
+    const id   = msg.id   || '?';
+    const text = msg.msg  || '';
+    const rssi = msg.rssi ? ` <span class="text-gray-600">${msg.rssi} dBm</span>` : '';
+    const isSelf = msg.self === true;
+    const nameColor = isSelf ? 'text-emerald-400' : 'text-blue-400';
+    _chatAppend(`<div class="py-1 border-b border-gray-800">
+        <span class="${nameColor} font-bold">${escHtml(user)}</span>
+        <span class="text-gray-600 text-xs ml-1">[${escHtml(id)}]</span>${rssi}
+        <p class="text-gray-200 mt-0.5 whitespace-pre-wrap">${escHtml(text)}</p>
+    </div>`);
+    // Flash tab if not active
+    const btn = document.getElementById('tab-btn-chat');
+    if (btn && !document.getElementById('tab-chat').classList.contains('hidden') === false) {
+        btn.classList.add('text-emerald-400');
+    }
+}
+
+function chatReceiveRaw(msg) {
+    const raw  = msg.raw  || '';
+    const rssi = msg.rssi ? ` ${msg.rssi} dBm` : '';
+    _chatAppend(`<div class="py-1 border-b border-gray-800">
+        <span class="text-yellow-600 text-xs">[observe]${rssi}</span>
+        <p class="text-gray-500 font-mono text-xs mt-0.5 break-all">${escHtml(raw)}</p>
+    </div>`);
+}
+
+async function chatSend() {
+    const input = document.getElementById('chat-input');
+    const msg = (input.value || '').trim();
+    if (!msg) return;
+    input.value = '';
+    try {
+        const r = await fetch('/api/chat/send', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({msg})
+        });
+        if (!r.ok) {
+            _chatAppend(`<div class="text-red-400 text-xs py-1">Send failed: ${r.status}</div>`);
+        }
+    } catch(e) {
+        _chatAppend(`<div class="text-red-400 text-xs py-1">Network error: ${e.message}</div>`);
+    }
+}
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 </script>
 </body>

@@ -7,6 +7,7 @@
 #include "handshake.h"
 #include "notifications.h"
 #include "settings.h"
+#include "deskchat.h"
 #include "ui.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -68,6 +69,15 @@ static void process_line(const char * json)
         const char * body  = doc["body"]  | "";
         if (app[0] != '\0' && title[0] != '\0') {
             notifAdd(app, title, body);
+        }
+        return;
+    }
+
+    /* {"cmd":"lora_send","msg":"..."} — companion chat message to broadcast */
+    if (strcmp(cmd, "lora_send") == 0) {
+        const char * msg = doc["msg"] | "";
+        if (msg[0] != '\0') {
+            deskChatSend(msg);
         }
         return;
     }

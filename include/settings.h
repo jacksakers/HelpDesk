@@ -50,6 +50,11 @@ void         settingsSetOwmUnits(const char * units);
 const char * settingsGetCompanionIP(void);
 void         settingsSetCompanionIP(const char * ip);
 
+// ── DeskChat ──────────────────────────────────────────────────────────────────
+// Display name shown in LoRa group chat.  Empty string = "Anon".
+const char * settingsGetChatUsername(void);
+void         settingsSetChatUsername(const char * name);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

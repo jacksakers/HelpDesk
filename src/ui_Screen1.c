@@ -77,6 +77,16 @@ static void settings_btn_ev(lv_event_t * e)
                       ui_Screen9_screen_init);
 }
 
+/* Swipe LEFT on the launcher opens DeskChat (chat lives to the "right")    */
+static void launcher_gesture_ev(lv_event_t * e)
+{
+    lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
+    if (dir == LV_DIR_LEFT) {
+        _ui_screen_change(&ui_Screen11, LV_SCREEN_LOAD_ANIM_MOVE_LEFT, 300, 0,
+                          ui_Screen11_screen_init);
+    }
+}
+
 /* ── Private helpers ───────────────────────────────────────── */
 static void build_header(lv_obj_t * scr)
 {
@@ -197,6 +207,10 @@ void ui_Screen1_screen_init(void)
     /* Auto-cleanup when this screen is unloaded */
     lv_obj_add_event_cb(ui_Screen1, scr_unloaded_delete_cb,
                         LV_EVENT_SCREEN_UNLOADED, ui_Screen1_screen_destroy);
+
+    /* Swipe left → DeskChat; swipe right is unused (launcher is root) */
+    lv_obj_add_flag(ui_Screen1, LV_OBJ_FLAG_GESTURE_BUBBLE);
+    lv_obj_add_event_cb(ui_Screen1, launcher_gesture_ev, LV_EVENT_GESTURE, NULL);
 
     build_header(ui_Screen1);
     build_tile_grid(ui_Screen1);
