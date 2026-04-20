@@ -16,11 +16,6 @@ void sdCardInit(void);
 // Returns true if the SD card was successfully mounted.
 bool sdCardMounted(void);
 
-// Returns a pointer to the HSPI bus used by the SD card.
-// DeskChat may share this bus (same SCK/MISO/MOSI, different CS).
-// Only valid after sdCardInit(); returns nullptr before that.
-struct SPIClass * sdCardGetSPI(void);
-
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

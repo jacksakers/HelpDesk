@@ -129,29 +129,6 @@ async def trigger_macro(macro_id: str):
     return {"status": "success", "macro_id": macro_id, "message": action}
 
 
-# ── DeskChat routes ───────────────────────────────────────────────────────────
-
-class _ChatSendBody(BaseModel):
-    msg: str
-
-
-@app.post("/api/chat/send")
-async def chat_send(body: _ChatSendBody):
-    """Relay a companion-typed message to the HelpDesk LoRa radio."""
-    text = body.msg.strip()
-    if not text:
-        raise HTTPException(status_code=400, detail="msg is empty")
-    if len(text) > 160:
-        raise HTTPException(status_code=400, detail="msg too long (max 160 chars)")
-    if not serial_comm.is_connected():
-        raise HTTPException(status_code=503, detail="HelpDesk not connected")
-    import json as _json
-    payload = _json.dumps({"cmd": "lora_send", "msg": text})
-    serial_comm.send(payload + "\n")
-    logging.info(f"[LoRa] companion send: {text[:60]}")
-    return {"status": "sent"}
-
-
 # ── Media routes ─────────────────────────────────────────────────────────────
 
 @app.post("/api/media/image")
@@ -315,32 +292,6 @@ async def _on_serial_event(data: dict) -> None:
             "macro_id": macro_id,
             "action": action,
             "source": "device",
-        })
-
-    if event == "lora_msg":
-        # LoRa group chat message received by the HelpDesk
-        user = data.get("user", "Anon")
-        uid  = data.get("id",  "?")
-        msg  = data.get("msg", "")
-        rssi = data.get("rssi", 0)
-        logging.info(f"[LoRa] {user} [{uid}]: {msg}  RSSI={rssi}")
-        await _manager.broadcast({
-            "type": "lora_msg",
-            "user": user,
-            "id":   uid,
-            "msg":  msg,
-            "rssi": rssi,
-        })
-
-    if event == "lora_raw":
-        # Raw / non-HelpDesk LoRa packet (observe mode)
-        raw  = data.get("raw",  "")
-        rssi = data.get("rssi", 0)
-        logging.info(f"[LoRa] raw packet  RSSI={rssi}: {raw[:60]}")
-        await _manager.broadcast({
-            "type": "lora_raw",
-            "raw":  raw,
-            "rssi": rssi,
         })
 
 

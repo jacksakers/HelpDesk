@@ -23,7 +23,6 @@
 #include "notifications.h"
 #include "task_master.h"
 #include "voice_input.h"
-#include "deskchat.h"
 
 // ─── Update intervals ──────────────────────────────────────────────────────────
 #define NTP_SYNC_INTERVAL_MS     600000UL   // 10 minutes
@@ -77,7 +76,6 @@ void setup()
     notifInit();
     taskMasterInit();
     voiceInputInit();
-    deskChatInit();
 
     // 5. Handshake — fires immediately (sends IP 0.0.0.0 if offline; companion ignores it)
     handshakeInit();
@@ -116,7 +114,6 @@ void loop()
     handleHandshake(now);
     handleNotifications(now);
     handleVoiceInput(now);
-    handleDeskChat(now);
     wifiHandleConnection(now);
 
     // Start HTTP server once (the first loop tick after WiFi connects)

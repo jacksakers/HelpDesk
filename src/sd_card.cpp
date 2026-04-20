@@ -49,8 +49,3 @@ bool sdCardMounted(void)
 {
     return s_mounted;
 }
-
-SPIClass * sdCardGetSPI(void)
-{
-    return &s_sd_spi;
-}
