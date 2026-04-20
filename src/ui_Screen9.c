@@ -7,7 +7,6 @@
 #include "buzzer.h"
 #include "settings.h"
 #include "deskchat.h"
-#include <stdio.h>
 
 /* ── Colours ───────────────────────────────────────────────── */
 #define CLR_BG           0x1A1A2E
@@ -21,7 +20,6 @@
 #define CLR_T_ERROR      0xF44336   /* Red    */
 
 #define SCREEN_W   480
-#define SCREEN_H   320
 #define HDR_H       36
 
 /* ── Module-private state ──────────────────────────────────── */
