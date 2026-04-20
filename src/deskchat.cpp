@@ -13,47 +13,24 @@
 #include <SD.h>
 
 // ── LoRa Pin Configuration ────────────────────────────────────────────────────
-// Wired to the Elecrow CrowPanel wireless module header (2×7, 14-pin)
-// using jumper wires.  The SX1262 has 16 pins; 9 data lines used + power/GND.
-//
-//  SX1262 pin  →  Elecrow header  (ESP32-S3 GPIO)
-//  ─────────────────────────────────────────────
-//  3V3         →  3V3  (power)
-//  GND         →  GND
-//  CLK         →  IO9   (SPI clock)
-//  MOSI        →  IO10  (SPI MOSI)
-//  MISO        →  IO1   (SPI MISO)
-//  CS          →  IO3   (chip-select / NSS)
-//  DIO1        →  IO2   (interrupt — fires when packet arrives)
-//  BUSY        →  IO15  (HIGH while radio is processing)
-//  RESET       →  IO16  (active-low reset)
-//  TXEn        →  IO0   (antenna switch TX enable)
-//  RXEn        →  IO46  (antenna switch RX enable)
-//
-//  ANTENNA: screw the antenna on BEFORE powering up — transmitting without
-//  one reflects energy back into the chip and permanently destroys it.
-
-#define LORA_USE_SD_SPI   0   /* 0 = own dedicated SPI on the Elecrow header */
+#define LORA_USE_SD_SPI   0   /* 0 = own SPI on the Elecrow Header */
 
 #if LORA_USE_SD_SPI
-  // Shared SPI bus — same SCK/MISO/MOSI as SD card; only control pins differ
-  #define LORA_NSS    41   /* Chip-select (different from SD CS=7)  */
-  #define LORA_DIO1   17   /* Interrupt / data-ready                */
-  #define LORA_RST    18   /* Active-low reset                      */
-  #define LORA_BUSY   21   /* BUSY signal: HIGH while chip is busy  */
-  #define LORA_TX_EN  RADIOLIB_NC
-  #define LORA_RX_EN  RADIOLIB_NC
+  // (Ignoring this section since we are using dedicated pins)
 #else
-  // Dedicated SPI — mapped to the Elecrow wireless module header
-  #define LORA_SCK    9    /* CLK  → IO9                            */
-  #define LORA_MOSI   10   /* MOSI → IO10                           */
-  #define LORA_MISO   1    /* MISO → IO1                            */
-  #define LORA_NSS    3    /* CS   → IO3                            */
-  #define LORA_DIO1   2    /* DIO1 → IO2  (RX-done interrupt)       */
-  #define LORA_BUSY   15   /* BUSY → IO15                           */
-  #define LORA_RST    16   /* RST  → IO16                           */
-  #define LORA_TX_EN  0    /* TXEn → IO0  (antenna switch)          */
-  #define LORA_RX_EN  46   /* RXEn → IO46 (antenna switch)          */
+  // Dedicated SPI — Mapped to the "Upside Down" Custom Layout
+  #define LORA_SCK    16    /* SPI clock (CLK) -> IO16 */
+  #define LORA_MOSI   3    /* SPI MOSI -> IO3 */
+  #define LORA_MISO   9    /* SPI MISO -> IO9 */
+  #define LORA_NSS    2    /* Chip-select (CS) -> IO2 */
+  
+  #define LORA_DIO1   15   /* Interrupt / data-ready -> IO15 */
+  #define LORA_BUSY   1    /* BUSY signal -> IO1 */
+  #define LORA_RST    10   /* Active-low reset -> IO10 */
+
+  // Antenna Switch Pins
+  #define LORA_TX_EN  46   /* TX Enable -> IO46 */
+  #define LORA_RX_EN  0    /* RX Enable -> IO0 */
 #endif
 
 // ── LoRa Radio Parameters ─────────────────────────────────────────────────────
