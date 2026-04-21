@@ -6,6 +6,7 @@
 #include "ui.h"
 #include "handshake.h"
 #include "notifications.h"
+#include "get_time.h"
 
 /* ── Colours ───────────────────────────────────────────────── */
 #define CLR_BG          0x1A1A2E
@@ -135,6 +136,7 @@ void ui_Screen4_screen_init(void)
 void ui_Screen4_screen_destroy(void)
 {
     ui_NotifList = NULL;
+    ui_ActiveClockLabel = NULL;
 
     if(ui_Screen4) lv_obj_delete(ui_Screen4);
     ui_Screen4 = NULL;

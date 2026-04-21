@@ -6,7 +6,7 @@
     <title>HelpDesk Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-900 text-white min-h-screen p-6 font-sans">
+<body class="bg-gray-900 text-white min-h-screen p-4 pb-20 sm:pb-6 font-sans">
 <div class="max-w-5xl mx-auto space-y-5">
 
     <!-- Header -->
@@ -27,14 +27,15 @@
         </div>
     </div>
 
-    <!-- Tab Navigation -->
-    <div class="flex gap-1 bg-gray-800 p-1 rounded-xl border border-gray-700">
-        <button id="tab-btn-status"   onclick="showTab('status')"   class="flex-1 py-2 px-4 rounded-lg text-sm font-medium bg-gray-700 text-white   transition">Status</button>
-        <button id="tab-btn-tasks"    onclick="showTab('tasks')"    class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">Tasks</button>
-        <button id="tab-btn-media"    onclick="showTab('media')"    class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">Media</button>
-        <button id="tab-btn-drive"    onclick="showTab('drive')"    class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">Drive</button>
-        <button id="tab-btn-chat"     onclick="showTab('chat')"     class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">&#x1F4AC; DeskChat</button>
-        <button id="tab-btn-settings" onclick="showTab('settings')" class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition">Settings</button>
+    <!-- Tab Navigation (Desktop — hidden on mobile, uses bottom nav instead) -->
+    <div class="hidden sm:flex gap-1 bg-gray-800 p-1 rounded-xl border border-gray-700 overflow-x-auto">
+        <button id="tab-btn-status"   onclick="showTab('status')"   class="py-2 px-3 rounded-lg text-sm font-medium bg-gray-700 text-white   transition whitespace-nowrap">Status</button>
+        <button id="tab-btn-calendar" onclick="showTab('calendar')" class="py-2 px-3 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap">&#x1F4C5; Calendar</button>
+        <button id="tab-btn-tasks"    onclick="showTab('tasks')"    class="py-2 px-3 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap">Tasks</button>
+        <button id="tab-btn-media"    onclick="showTab('media')"    class="py-2 px-3 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap">Media</button>
+        <button id="tab-btn-drive"    onclick="showTab('drive')"    class="py-2 px-3 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap">Drive</button>
+        <button id="tab-btn-chat"     onclick="showTab('chat')"     class="py-2 px-3 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap">&#x1F4AC; DeskChat</button>
+        <button id="tab-btn-settings" onclick="showTab('settings')" class="py-2 px-3 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition whitespace-nowrap">Settings</button>
     </div>
 
     <!-- STATUS TAB -->
@@ -155,14 +156,19 @@
         <!-- Add Task Form -->
         <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
             <h2 class="text-lg font-semibold mb-3">Add Task</h2>
-            <div class="flex gap-3">
+            <div class="flex flex-col sm:flex-row gap-3">
                 <input id="task-new-text" type="text" placeholder="What needs doing?"
                     class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 transition"
                     onkeydown="if(event.key==='Enter') addTask()">
-                <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
-                    <input type="checkbox" id="task-repeat" class="accent-blue-500"> Repeat
-                </label>
-                <button onclick="addTask()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition">+ Add</button>
+                <div class="flex items-center gap-3">
+                    <input id="task-due-date" type="date"
+                        class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-400 transition"
+                        title="Due date (optional)">
+                    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none whitespace-nowrap">
+                        <input type="checkbox" id="task-repeat" class="accent-blue-500"> Repeat
+                    </label>
+                    <button onclick="addTask()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition whitespace-nowrap">+ Add</button>
+                </div>
             </div>
             <p id="task-add-status" class="mt-2 text-xs hidden"></p>
         </div>
@@ -172,6 +178,80 @@
             <h2 class="text-lg font-semibold mb-3">Tasks</h2>
             <div id="task-list" class="space-y-2">
                 <p id="task-list-empty" class="text-gray-500 text-sm italic">No tasks yet. Load from device or add one above.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- CALENDAR TAB -->
+    <div id="tab-calendar" class="hidden space-y-4">
+        <!-- Month view -->
+        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+                <button onclick="calPrevMonth()" class="text-gray-400 hover:text-white w-8 h-8 rounded-lg hover:bg-gray-700 transition text-lg leading-none">&#x25C4;</button>
+                <h2 id="cal-month-label" class="text-base font-semibold">Loading&hellip;</h2>
+                <button onclick="calNextMonth()" class="text-gray-400 hover:text-white w-8 h-8 rounded-lg hover:bg-gray-700 transition text-lg leading-none">&#x25BA;</button>
+            </div>
+            <!-- Weekday headers -->
+            <div class="grid grid-cols-7 mb-1">
+                <div class="text-center text-xs text-gray-500 py-1">Mon</div>
+                <div class="text-center text-xs text-gray-500 py-1">Tue</div>
+                <div class="text-center text-xs text-gray-500 py-1">Wed</div>
+                <div class="text-center text-xs text-gray-500 py-1">Thu</div>
+                <div class="text-center text-xs text-gray-500 py-1">Fri</div>
+                <div class="text-center text-xs text-gray-500 py-1">Sat</div>
+                <div class="text-center text-xs text-gray-500 py-1">Sun</div>
+            </div>
+            <!-- Day grid (populated by calendar.js) -->
+            <div id="cal-grid" class="grid grid-cols-7 gap-1"></div>
+        </div>
+        <!-- Selected day events -->
+        <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
+            <div class="flex items-center justify-between mb-3">
+                <h3 id="cal-day-title" class="text-base font-semibold text-gray-300">Select a day</h3>
+                <button onclick="showAddEventModal()" class="bg-purple-700 hover:bg-purple-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">+ Add Event</button>
+            </div>
+            <div id="cal-day-events">
+                <p class="text-gray-500 text-sm italic">Click a day to see its events.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Event Modal -->
+    <div id="add-event-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-xl p-5 w-full max-w-sm border border-gray-700 shadow-2xl">
+            <h3 class="text-base font-semibold mb-4">Add Event</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Title</label>
+                    <input id="evt-title" type="text" placeholder="Meeting title"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-400 transition"
+                        onkeydown="if(event.key==='Enter') submitAddEvent()">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Date</label>
+                    <input id="evt-date" type="date"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-400 transition">
+                </div>
+                <div class="flex gap-3">
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-400 mb-1">Start</label>
+                        <input id="evt-start" type="time"
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-400 transition">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs text-gray-400 mb-1">End</label>
+                        <input id="evt-end" type="time"
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-400 transition">
+                    </div>
+                </div>
+                <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+                    <input type="checkbox" id="evt-allday" class="accent-purple-500" onchange="toggleAllDay(this)"> All day
+                </label>
+            </div>
+            <p id="add-evt-status" class="text-xs mt-2 hidden"></p>
+            <div class="flex gap-2 mt-4 justify-end">
+                <button onclick="closeAddEventModal()" class="bg-gray-700 hover:bg-gray-600 text-sm px-4 py-2 rounded-lg transition">Cancel</button>
+                <button onclick="submitAddEvent()" class="bg-purple-700 hover:bg-purple-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Add</button>
             </div>
         </div>
     </div>
@@ -393,11 +473,44 @@
 
 </div>
 
+<!-- Mobile Bottom Navigation (hidden on sm+) -->
+<nav class="sm:hidden fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 flex z-40 safe-area-inset-bottom">
+    <button id="mob-btn-status"   onclick="showTab('status')"   class="flex-1 flex flex-col items-center justify-center py-1.5 text-purple-400 transition">
+        <span class="text-base leading-tight">&#x1F4CA;</span>
+        <span class="text-[10px] mt-0.5 font-medium">Status</span>
+    </button>
+    <button id="mob-btn-calendar" onclick="showTab('calendar')" class="flex-1 flex flex-col items-center justify-center py-1.5 text-gray-500 hover:text-gray-300 transition">
+        <span class="text-base leading-tight">&#x1F4C5;</span>
+        <span class="text-[10px] mt-0.5 font-medium">Calendar</span>
+    </button>
+    <button id="mob-btn-tasks"    onclick="showTab('tasks')"    class="flex-1 flex flex-col items-center justify-center py-1.5 text-gray-500 hover:text-gray-300 transition">
+        <span class="text-base leading-tight">&#x2705;</span>
+        <span class="text-[10px] mt-0.5 font-medium">Tasks</span>
+    </button>
+    <button id="mob-btn-media"    onclick="showTab('media')"    class="flex-1 flex flex-col items-center justify-center py-1.5 text-gray-500 hover:text-gray-300 transition">
+        <span class="text-base leading-tight">&#x1F3A5;</span>
+        <span class="text-[10px] mt-0.5 font-medium">Media</span>
+    </button>
+    <button id="mob-btn-drive"    onclick="showTab('drive')"    class="flex-1 flex flex-col items-center justify-center py-1.5 text-gray-500 hover:text-gray-300 transition">
+        <span class="text-base leading-tight">&#x1F4BE;</span>
+        <span class="text-[10px] mt-0.5 font-medium">Drive</span>
+    </button>
+    <button id="mob-btn-chat"     onclick="showTab('chat')"     class="flex-1 flex flex-col items-center justify-center py-1.5 text-gray-500 hover:text-gray-300 transition">
+        <span class="text-base leading-tight">&#x1F4AC;</span>
+        <span class="text-[10px] mt-0.5 font-medium">Chat</span>
+    </button>
+    <button id="mob-btn-settings" onclick="showTab('settings')" class="flex-1 flex flex-col items-center justify-center py-1.5 text-gray-500 hover:text-gray-300 transition">
+        <span class="text-base leading-tight">&#x2699;&#xFE0F;</span>
+        <span class="text-[10px] mt-0.5 font-medium">Settings</span>
+    </button>
+</nav>
+
 <script src="/static/js/utils.js"></script>
 <script src="/static/js/log.js"></script>
 <script src="/static/js/macros.js"></script>
 <script src="/static/js/media.js"></script>
 <script src="/static/js/settings.js"></script>
+<script src="/static/js/calendar.js"></script>
 <script src="/static/js/tasks.js"></script>
 <script src="/static/js/drive.js"></script>
 <script src="/static/js/chat.js"></script>

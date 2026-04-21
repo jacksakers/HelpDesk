@@ -7,15 +7,16 @@
 #include "handshake.h"
 #include "notifications.h"
 #include "wifi_status.h"
+#include "get_time.h"
 
 /* ── Layout constants ──────────────────────────────────────── */
 #define SCREEN_W       480
 #define SCREEN_H       320
 #define HDR_H           36
-#define TILE_W         100
-#define TILE_H         120
-#define TILE_GAP         8
-#define TILE_MARGIN     12
+#define TILE_W          95
+#define TILE_H          80
+#define TILE_GAP         6
+#define TILE_MARGIN     10
 #define TILES_PER_ROW    4
 #define COL_STRIDE      (TILE_W + TILE_GAP)
 #define ROW_STRIDE      (TILE_H + TILE_GAP)
@@ -34,14 +35,15 @@ typedef struct {
 } app_tile_t;
 
 static const app_tile_t k_apps[] = {
-    { LV_SYMBOL_HOME    "\nDeskDash",   0x2196F3, &ui_Screen2,  ui_Screen2_screen_init  },
-    { LV_SYMBOL_PAUSE   "\nTomatimer",  0xF44336, &ui_Screen3,  ui_Screen3_screen_init  },
-    { LV_SYMBOL_BELL    "\nNotifs",     0xFF5722, &ui_Screen4,  ui_Screen4_screen_init  },
-    { LV_SYMBOL_LIST    "\nTaskMaster", 0x4CAF50, &ui_Screen5,  ui_Screen5_screen_init  },
-    { LV_SYMBOL_IMAGE   "\nZenFrame",   0x009688, &ui_Screen6,  ui_Screen6_screen_init  },
-    { LV_SYMBOL_USB     "\nPCMonitor",  0xFF9800, &ui_Screen7,  ui_Screen7_screen_init  },
-    { LV_SYMBOL_SHUFFLE "\nGameBreak",  0xE91E63, &ui_Screen8,  ui_Screen8_screen_init  },
-    { LV_SYMBOL_DRIVE   "\nDeskDrive",  0x0077B6, &ui_Screen10, ui_Screen10_screen_init },
+    { LV_SYMBOL_HOME     "\nDeskDash",   0x2196F3, &ui_Screen2,  ui_Screen2_screen_init  },
+    { LV_SYMBOL_PAUSE    "\nTomatimer",  0xF44336, &ui_Screen3,  ui_Screen3_screen_init  },
+    { LV_SYMBOL_BELL     "\nNotifs",     0xFF5722, &ui_Screen4,  ui_Screen4_screen_init  },
+    { LV_SYMBOL_LIST     "\nTaskMaster", 0x4CAF50, &ui_Screen5,  ui_Screen5_screen_init  },
+    { LV_SYMBOL_LOOP     "\nCalendar",   0xAB47BC, &ui_Screen11, ui_Screen11_screen_init },
+    { LV_SYMBOL_IMAGE    "\nZenFrame",   0x009688, &ui_Screen6,  ui_Screen6_screen_init  },
+    { LV_SYMBOL_USB      "\nPCMonitor",  0xFF9800, &ui_Screen7,  ui_Screen7_screen_init  },
+    { LV_SYMBOL_SHUFFLE  "\nGameBreak",  0xE91E63, &ui_Screen8,  ui_Screen8_screen_init  },
+    { LV_SYMBOL_DRIVE    "\nDeskDrive",  0x0077B6, &ui_Screen10, ui_Screen10_screen_init },
 };
 #define APP_COUNT  (sizeof(k_apps) / sizeof(k_apps[0]))
 
@@ -101,6 +103,9 @@ static void build_header(lv_obj_t * scr)
     lv_obj_set_style_text_color(s_wifi_icon, lv_color_hex(0x555566), 0); /* muted until connected */
     lv_obj_set_style_text_font(s_wifi_icon, &lv_font_montserrat_12, 0);
     lv_obj_align(s_wifi_icon, LV_ALIGN_LEFT_MID, 8, 0);
+
+    /* Mini clock — just left of the settings gear */
+    uiAddHeaderClock(hdr, -48);
 
     /* Settings gear button — upper-right corner */
     lv_obj_t * gear_btn = lv_button_create(hdr);
@@ -209,6 +214,7 @@ void ui_Screen1_screen_init(void)
 void ui_Screen1_screen_destroy(void)
 {
     s_wifi_icon = NULL;
+    ui_ActiveClockLabel = NULL;
     if (s_wifi_timer) { lv_timer_delete(s_wifi_timer); s_wifi_timer = NULL; }
     ui_NotifTile  = NULL;
     ui_NotifBadge = NULL;

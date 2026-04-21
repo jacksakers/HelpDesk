@@ -41,8 +41,9 @@ class _SettingsBody(BaseModel):
 
 
 class _TaskAddBody(BaseModel):
-    text:   str
-    repeat: bool = False
+    text:     str
+    repeat:   bool = False
+    due_date: Optional[str] = None
 
 app = FastAPI(title="HelpDesk Companion App")
 logging.basicConfig(level=logging.INFO)
@@ -348,9 +349,10 @@ async def add_task(body: _TaskAddBody):
     try:
         import httpx
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(f"{base}/tasks/add",
-                                     json={"text": body.text.strip(),
-                                           "repeat": body.repeat})
+            payload: dict = {"text": body.text.strip(), "repeat": body.repeat}
+            if body.due_date:
+                payload["due_date"] = body.due_date
+            resp = await client.post(f"{base}/tasks/add", json=payload)
         return resp.json()
     except Exception as e:
         raise HTTPException(503, f"Could not reach device: {e}")
@@ -658,6 +660,77 @@ async def voice_transcribe(request: Request):
 
     logging.info(f"[Voice] Transcribed: \"{text}\"")
     return {"text": text}
+
+
+# ── Calendar routes (proxy to HelpDesk /calendar/*) ──────────────────────────
+
+class _CalendarAddBody(BaseModel):
+    title:      str
+    date:       str
+    start_time: str  = ""
+    end_time:   str  = ""
+    all_day:    bool = False
+
+
+class _CalendarDeleteBody(BaseModel):
+    id: int
+
+
+@app.get("/api/calendar")
+async def get_calendar():
+    """Fetches all calendar events from the HelpDesk."""
+    base = _device_base_url()
+    if not base:
+        raise HTTPException(503, "Device IP not configured — set it in Settings.")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{base}/calendar")
+        if resp.status_code == 200:
+            return resp.json()
+        raise HTTPException(resp.status_code, "Device returned an error.")
+    except Exception as e:
+        raise HTTPException(503, f"Could not reach device: {e}")
+
+
+@app.post("/api/calendar/add")
+async def add_calendar_event(body: _CalendarAddBody):
+    """Adds a calendar event to the HelpDesk."""
+    if not body.title.strip():
+        raise HTTPException(400, "title must not be empty")
+    if not body.date:
+        raise HTTPException(400, "date is required")
+    base = _device_base_url()
+    if not base:
+        raise HTTPException(503, "Device IP not configured.")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(f"{base}/calendar/add", json={
+                "title":      body.title.strip(),
+                "date":       body.date,
+                "start_time": body.start_time,
+                "end_time":   body.end_time,
+                "all_day":    body.all_day,
+            })
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(503, f"Could not reach device: {e}")
+
+
+@app.post("/api/calendar/delete")
+async def delete_calendar_event(body: _CalendarDeleteBody):
+    """Deletes a calendar event from the HelpDesk."""
+    base = _device_base_url()
+    if not base:
+        raise HTTPException(503, "Device IP not configured.")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(f"{base}/calendar/delete", json={"id": body.id})
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(503, f"Could not reach device: {e}")
 
 
 # ── Startup ──────────────────────────────────────────────────────────────────

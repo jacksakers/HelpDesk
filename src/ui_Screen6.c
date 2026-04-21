@@ -5,6 +5,7 @@
 
 #include "ui.h"
 #include "zen_frame.h"
+#include "get_time.h"
 
 /* ── Colours ───────────────────────────────────────────────── */
 #define CLR_BG      0x1A1A2E
@@ -74,6 +75,8 @@ static void build_header(lv_obj_t * scr)
     lv_label_set_text(title, "ZenFrame");
     lv_obj_set_style_text_color(title, lv_color_white(), 0);
     lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
+
+    uiAddHeaderClock(hdr, -8);
 }
 
 static void build_body(lv_obj_t * scr)
@@ -147,6 +150,7 @@ void ui_Screen6_screen_destroy(void)
 {
     ui_ZenImage       = NULL;
     ui_ZenPlaceholder = NULL;
+    ui_ActiveClockLabel = NULL;
     if(ui_Screen6) lv_obj_delete(ui_Screen6);
     ui_Screen6 = NULL;
 }

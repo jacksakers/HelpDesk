@@ -22,8 +22,7 @@ extern "C" {
 /* ── Data model ───────────────────────────────────────────────────────────── */
 typedef struct {
     uint32_t id;
-    char     text[TASK_TEXT_MAX];
-    bool     repeat;        /* Resets daily instead of being purged on complete */
+    char     text[TASK_TEXT_MAX];    char     due_date[11];   /* "YYYY-MM-DD" or "" for no due date */    bool     repeat;        /* Resets daily instead of being purged on complete */
     bool     done_today;    /* True after the task was completed today           */
 } task_t;
 
@@ -35,8 +34,9 @@ void taskMasterInit(void);
 
 /* ── CRUD ─────────────────────────────────────────────────────────────────── */
 
-/* Add a new task.  Returns false when TASK_MAX is reached. */
-bool taskAdd(const char *text, bool repeat);
+/* Add a new task.  due_date may be NULL or empty string for no due date.
+   Returns false when TASK_MAX is reached. */
+bool taskAdd(const char *text, bool repeat, const char *due_date);
 
 /* Mark a task as done-today, award XP, play success tone, refresh screen.
    Returns false if the id is not found or already done today. */
@@ -60,6 +60,10 @@ void          taskGetStats(int *out_daily_xp, int *out_total_xp,
 
 /* How many tasks have been completed today. */
 int           taskGetDailyDone(void);
+
+/* Fills out[] with pointers to tasks whose due_date <= today_str and are not
+   done.  Returns the number of entries written (capped at max_count). */
+int           taskGetDueSoon(const task_t **out, int max_count, const char *today_str);
 
 /* ── UI hooks ─────────────────────────────────────────────────────────────── */
 

@@ -11,6 +11,19 @@
 
 static unsigned long s_last_update_ms = 0;
 
+// ─── Mini-clock label ────────────────────────────────────────────────────────
+lv_obj_t * ui_ActiveClockLabel = NULL;
+
+void uiAddHeaderClock(lv_obj_t * header, int right_offset)
+{
+    lv_obj_t * clk = lv_label_create(header);
+    lv_label_set_text(clk, "--:-- --");
+    lv_obj_set_style_text_color(clk, lv_color_hex(0xBBBBCC), 0);
+    lv_obj_set_style_text_font(clk, &lv_font_montserrat_12, 0);
+    lv_obj_align(clk, LV_ALIGN_RIGHT_MID, right_offset, 0);
+    ui_ActiveClockLabel = clk;
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 void initNTP(void)
@@ -28,24 +41,34 @@ void handleTimeUpdate(unsigned long now_ms)
     s_last_update_ms = now_ms;
 
     // Screen2 widgets are null when DeskDash isn't active — skip silently
-    if (!ui_TimeLabel && !ui_DateLabel) return;
+    if (!ui_TimeLabel && !ui_DateLabel && !ui_ActiveClockLabel) return;
 
     time_t raw = time(nullptr);
     if (raw < 100000L) {
         // SNTP hasn't delivered a valid time yet
-        if (ui_TimeLabel) lv_label_set_text(ui_TimeLabel, "--:--:--");
-        if (ui_DateLabel) lv_label_set_text(ui_DateLabel, "Syncing...");
+        if (ui_TimeLabel)         lv_label_set_text(ui_TimeLabel,        "--:--");
+        if (ui_DateLabel)         lv_label_set_text(ui_DateLabel,        "Syncing...");
+        if (ui_ActiveClockLabel)  lv_label_set_text(ui_ActiveClockLabel, "--:-- --");
         return;
     }
 
     struct tm t;
     localtime_r(&raw, &t);
 
-    char time_buf[9];   // HH:MM:SS + NUL
+    char time_buf[12];  // "12:59 PM" + NUL
     char date_buf[20];  // Weekday, Mon DD YYYY + NUL
-    strftime(time_buf, sizeof(time_buf), "%H:%M:%S", &t);
+    strftime(time_buf, sizeof(time_buf), "%I:%M %p", &t);
     strftime(date_buf, sizeof(date_buf), "%a, %b %d %Y", &t);
 
-    lv_label_set_text(ui_TimeLabel, time_buf);
-    lv_label_set_text(ui_DateLabel, date_buf);
+    if (ui_TimeLabel)        lv_label_set_text(ui_TimeLabel, time_buf);
+    if (ui_DateLabel)        lv_label_set_text(ui_DateLabel, date_buf);
+    if (ui_ActiveClockLabel) lv_label_set_text(ui_ActiveClockLabel, time_buf);
+
+    /* Every 60 s, refresh DeskDash upcoming-events panel */
+    static unsigned long s_last_upcoming_ms = 0;
+    if (ui_DeskDashPanel &&
+        (now_ms - s_last_upcoming_ms >= 60000UL || s_last_upcoming_ms == 0)) {
+        s_last_upcoming_ms = now_ms;
+        deskDashRefreshUpcoming();
+    }
 }

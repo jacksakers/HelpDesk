@@ -32,8 +32,12 @@ extern "C" {
 void getWeatherData(void);
 
 // Call every loop() iteration. Re-fetches every 10 minutes.
-// Only acts when Screen2 widgets are live.
 void handleWeatherUpdate(unsigned long now_ms);
+
+// Apply the last successfully fetched weather data to the Screen2 labels.
+// Call this from ui_Screen2_screen_init() so the labels are populated
+// immediately when the user navigates to DeskDash.
+void weatherApplyToScreen(void);
 
 #ifdef __cplusplus
 } /* extern "C" */

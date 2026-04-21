@@ -79,7 +79,7 @@ static void my_touchpad_read(lv_indev_t * indev, lv_indev_data_t * data)
         // Log first few touch events
         static int touch_log_count = 0;
         if(touch_log_count < 20) {
-            Serial.printf("[Touch] x=%d  y=%d\n", data->point.x, data->point.y);
+            // Serial.printf("[Touch] x=%d  y=%d\n", data->point.x, data->point.y);
             touch_log_count++;
         }
     } else {

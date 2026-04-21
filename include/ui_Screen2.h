@@ -21,6 +21,15 @@ extern lv_obj_t * ui_DateLabel;
 extern lv_obj_t * ui_WeatherLabel;
 extern lv_obj_t * ui_WeatherCondLabel;
 
+/* Upcoming-events panel (calendar events + tasks due today).
+   Container is owned by Screen2; individual rows are rebuilt by
+   deskDashRefreshUpcoming() each minute and on screen open. */
+extern lv_obj_t * ui_DeskDashPanel;
+
+/* Rebuild the upcoming-events rows inside ui_DeskDashPanel.
+   Safe to call when Screen2 is not active (ui_DeskDashPanel will be NULL). */
+void deskDashRefreshUpcoming(void);
+
 #ifdef __cplusplus
 } /*extern "C"*/
 #endif

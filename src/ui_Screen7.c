@@ -5,6 +5,7 @@
 
 #include "ui.h"
 #include "handshake.h"
+#include "get_time.h"
 
 /* ── Colours ───────────────────────────────────────────────── */
 #define CLR_BG       0x1A1A2E
@@ -209,6 +210,7 @@ void ui_Screen7_screen_destroy(void)
     ui_GpuLabel      = NULL;
     ui_PcStatusLabel = NULL;
     ui_SerialLogArea = NULL;
+    ui_ActiveClockLabel = NULL;
 
     if(ui_Screen7) lv_obj_delete(ui_Screen7);
     ui_Screen7 = NULL;

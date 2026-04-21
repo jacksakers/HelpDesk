@@ -57,6 +57,13 @@ function renderTasks(tasks, stats) {
 
         const badges = document.createElement('div');
         badges.className = 'flex items-center gap-2';
+        if (t.due_date) {
+            const due = document.createElement('span');
+            due.textContent = t.due_date;
+            due.title = 'Due date';
+            due.className = 'text-xs px-1.5 py-0.5 rounded bg-orange-900 text-orange-300 font-mono';
+            badges.appendChild(due);
+        }
         if (t.repeat) {
             const rep = document.createElement('span');
             rep.textContent = '\u21ba';
@@ -83,23 +90,28 @@ function renderTasks(tasks, stats) {
 }
 
 async function addTask() {
-    const input  = document.getElementById('task-new-text');
-    const repeat = document.getElementById('task-repeat').checked;
-    const text   = input.value.trim();
+    const input    = document.getElementById('task-new-text');
+    const repeat   = document.getElementById('task-repeat').checked;
+    const dueDateEl = document.getElementById('task-due-date');
+    const due_date  = dueDateEl ? dueDateEl.value : '';
+    const text      = input.value.trim();
     if (!text) return;
     const statusEl = document.getElementById('task-add-status');
     statusEl.textContent = 'Adding...';
     statusEl.className = 'mt-2 text-xs text-gray-400';
     statusEl.classList.remove('hidden');
     try {
+        const payload = {text, repeat};
+        if (due_date) payload.due_date = due_date;
         const res = await fetch('/api/tasks/add', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({text, repeat})
+            body: JSON.stringify(payload)
         });
         if (res.ok) {
             input.value = '';
             document.getElementById('task-repeat').checked = false;
+            if (dueDateEl) dueDateEl.value = '';
             statusEl.textContent = 'Added!';
             statusEl.className = 'mt-2 text-xs text-emerald-400';
             loadTasks();

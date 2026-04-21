@@ -7,6 +7,7 @@
 #include "ui.h"
 #include "task_master.h"
 #include "voice_input.h"
+#include "get_time.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -75,7 +76,7 @@ static void confirm_task_ev(lv_event_t *e)
     if (!ui_TaskInputArea) return;
     const char *text = lv_textarea_get_text(ui_TaskInputArea);
     if (text && strlen(text) > 0) {
-        taskAdd(text, s_repeat_flag);
+        taskAdd(text, s_repeat_flag, NULL);
     }
     hide_keyboard();
 }
@@ -234,6 +235,7 @@ static void build_header(lv_obj_t *scr)
     lv_obj_set_style_text_color(ui_TaskStreakLabel, lv_color_hex(CLR_STREAK), 0);
     lv_obj_set_style_text_font(ui_TaskStreakLabel, &lv_font_montserrat_10, 0);
     lv_obj_align(ui_TaskStreakLabel, LV_ALIGN_RIGHT_MID, -4, 0);
+    /* Note: header is full (level + streak labels on right) — clock omitted */
 }
 
 static void build_progress_row(lv_obj_t *scr)
@@ -457,4 +459,5 @@ void ui_Screen5_screen_destroy(void)
 
     if (ui_Screen5) lv_obj_delete(ui_Screen5);
     ui_Screen5 = NULL;
+    ui_ActiveClockLabel = NULL;
 }

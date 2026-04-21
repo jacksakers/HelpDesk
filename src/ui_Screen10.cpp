@@ -7,6 +7,7 @@
 #include "sd_card.h"
 #include "handshake.h"
 #include "settings.h"
+#include "get_time.h"
 #include <Arduino.h>
 #include <SD.h>
 #include <WiFi.h>
@@ -625,6 +626,8 @@ static void build_header(lv_obj_t * scr)
     lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
     lv_obj_align(title, LV_ALIGN_CENTER, 20, -6);
 
+    uiAddHeaderClock(hdr, -8);
+
     /* Path sub-label below title */
     s_path_label = lv_label_create(hdr);
     lv_label_set_text(s_path_label, s_cwd);
@@ -713,6 +716,7 @@ void ui_Screen10_screen_destroy(void)
     s_edit_path[0]   = '\0';
     s_convert_busy   = false;
     if (s_view_img_buf) { free(s_view_img_buf); s_view_img_buf = NULL; }
+    ui_ActiveClockLabel = NULL;
     if (ui_Screen10) lv_obj_delete(ui_Screen10);
     ui_Screen10 = NULL;
 }

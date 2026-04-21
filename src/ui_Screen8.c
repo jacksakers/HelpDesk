@@ -4,6 +4,7 @@
 // Depends  : ui.h (LVGL 9.x)
 
 #include "ui.h"
+#include "get_time.h"
 #include "ui_tictactoe.h"
 
 /* ── Colours ───────────────────────────────────────────────── */
@@ -72,6 +73,8 @@ static void build_header(lv_obj_t * scr)
     lv_label_set_text(title, "GameBreak");
     lv_obj_set_style_text_color(title, lv_color_white(), 0);
     lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
+
+    uiAddHeaderClock(hdr, -8);
 }
 
 /* Builds a game button. Pass playable=true to label it ready-to-play.
@@ -142,6 +145,7 @@ void ui_Screen8_screen_init(void)
 
 void ui_Screen8_screen_destroy(void)
 {
+    ui_ActiveClockLabel = NULL;
     if(ui_Screen8) lv_obj_delete(ui_Screen8);
     ui_Screen8 = NULL;
 }

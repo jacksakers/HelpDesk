@@ -60,10 +60,11 @@ static void save_tasks(void)
     JsonArray arr = doc.to<JsonArray>();
     for (int i = 0; i < s_task_count; i++) {
         JsonObject o = arr.add<JsonObject>();
-        o["id"]     = s_tasks[i].id;
-        o["text"]   = s_tasks[i].text;
-        o["repeat"] = s_tasks[i].repeat;
-        o["done"]   = s_tasks[i].done_today;
+        o["id"]       = s_tasks[i].id;
+        o["text"]     = s_tasks[i].text;
+        o["due_date"] = s_tasks[i].due_date;
+        o["repeat"]   = s_tasks[i].repeat;
+        o["done"]     = s_tasks[i].done_today;
     }
 
     File f = SD.open(TASKS_FILE, FILE_WRITE);
@@ -113,6 +114,9 @@ static void load_tasks(void)
         const char *txt = o["text"] | "";
         strncpy(t.text, txt, TASK_TEXT_MAX - 1);
         t.text[TASK_TEXT_MAX - 1] = '\0';
+        const char *dd = o["due_date"] | "";
+        strncpy(t.due_date, dd, sizeof(t.due_date) - 1);
+        t.due_date[sizeof(t.due_date) - 1] = '\0';
     }
     Serial.printf("[Tasks] Loaded %d tasks from SD.\n", s_task_count);
 }
@@ -229,7 +233,7 @@ void taskMasterInit(void)
 }
 
 // ── Public CRUD ───────────────────────────────────────────────────────────────
-bool taskAdd(const char *text, bool repeat)
+bool taskAdd(const char *text, bool repeat, const char *due_date)
 {
     if (!text || strlen(text) == 0) return false;
     if (s_task_count >= TASK_MAX) return false;
@@ -240,6 +244,12 @@ bool taskAdd(const char *text, bool repeat)
     t.done_today = false;
     strncpy(t.text, text, TASK_TEXT_MAX - 1);
     t.text[TASK_TEXT_MAX - 1] = '\0';
+    if (due_date && due_date[0]) {
+        strncpy(t.due_date, due_date, sizeof(t.due_date) - 1);
+        t.due_date[sizeof(t.due_date) - 1] = '\0';
+    } else {
+        t.due_date[0] = '\0';
+    }
 
     save_tasks();
     save_stats();
@@ -304,6 +314,21 @@ bool taskDelete(uint32_t id)
 int taskGetCount(void)             { return s_task_count; }
 const task_t *taskGet(int idx)     { return (idx >= 0 && idx < s_task_count) ? &s_tasks[idx] : nullptr; }
 int taskGetDailyDone(void)         { return s_daily_done; }
+
+int taskGetDueSoon(const task_t **out, int max_count, const char *today_str)
+{
+    int found = 0;
+    for (int i = 0; i < s_task_count && found < max_count; i++) {
+        const task_t *t = &s_tasks[i];
+        if (t->done_today)        continue;
+        if (t->due_date[0] == '\0') continue;
+        /* due_date <= today_str means due today or overdue */
+        if (strcmp(t->due_date, today_str) <= 0) {
+            out[found++] = t;
+        }
+    }
+    return found;
+}
 
 void taskGetStats(int *out_daily_xp, int *out_total_xp,
                   int *out_level,    int *out_streak)

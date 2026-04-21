@@ -15,6 +15,10 @@
 static unsigned long s_last_weather_ms = 0;
 #define WEATHER_INTERVAL_MS 600000UL   // 10 minutes
 
+/* Last successfully fetched data — applied when Screen2 opens */
+static char s_last_temp[16] = "";
+static char s_last_cond[32] = "";
+
 /* Percent-encode a string for use in a URL query parameter.
  * Letters, digits, '-', '_', '.', '~' are passed through unchanged;
  * everything else (including spaces) is encoded as %XX. */
@@ -99,8 +103,22 @@ void getWeatherData(void)
 
     Serial.printf("[Weather] %s: %s, %s, hum=%d%%\n", city_, cond, temp_str, hum);
 
-    if (ui_WeatherLabel)     lv_label_set_text(ui_WeatherLabel,     temp_str);
-    if (ui_WeatherCondLabel) lv_label_set_text(ui_WeatherCondLabel, cond);
+    /* Cache so weatherApplyToScreen() can re-apply when Screen2 opens */
+    strncpy(s_last_temp, temp_str, sizeof(s_last_temp) - 1);
+    s_last_temp[sizeof(s_last_temp) - 1] = '\0';
+    strncpy(s_last_cond, cond,     sizeof(s_last_cond) - 1);
+    s_last_cond[sizeof(s_last_cond) - 1] = '\0';
+
+    weatherApplyToScreen();
+}
+
+// --- Apply cached data -------------------------------------------------------
+void weatherApplyToScreen(void)
+{
+    if (ui_WeatherLabel     && s_last_temp[0])
+        lv_label_set_text(ui_WeatherLabel,     s_last_temp);
+    if (ui_WeatherCondLabel && s_last_cond[0])
+        lv_label_set_text(ui_WeatherCondLabel, s_last_cond);
 }
 
 // --- Loop handler ------------------------------------------------------------

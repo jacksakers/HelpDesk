@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "ui.h"   /* lv_obj_t */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -28,8 +30,18 @@ extern "C" {
 void initNTP(void);
 
 // Call every loop() iteration. Updates ui_TimeLabel / ui_DateLabel
-// (only if Screen2 widgets are currently live).
+// (on Screen2) and ui_ActiveClockLabel (header mini-clock on any other screen).
 void handleTimeUpdate(unsigned long now_ms);
+
+// ─── Mini clock shared across screens ────────────────────────────────────────
+// Pointer to the currently visible header clock label (NULL when no screen
+// with a mini-clock is active).  Set by uiAddHeaderClock().
+extern lv_obj_t * ui_ActiveClockLabel;
+
+// Creates a small time label inside `header`, right-aligned with the given
+// pixel offset from the right edge (pass a negative value, e.g. -8).
+// Also sets ui_ActiveClockLabel to the new label.
+void uiAddHeaderClock(lv_obj_t * header, int right_offset);
 
 #ifdef __cplusplus
 } /* extern "C" */

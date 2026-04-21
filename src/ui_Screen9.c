@@ -4,6 +4,7 @@
 // Depends  : ui.h (LVGL 9.x), buzzer.h
 
 #include "ui.h"
+#include "get_time.h"
 #include "buzzer.h"
 #include "settings.h"
 
@@ -128,6 +129,8 @@ static void build_header(lv_obj_t * scr)
     lv_label_set_text(title, "Settings");
     lv_obj_set_style_text_color(title, lv_color_white(), 0);
     lv_obj_center(title);
+
+    uiAddHeaderClock(hdr, -8);
 }
 
 static void build_sound_row(lv_obj_t * scr)
@@ -231,6 +234,7 @@ void ui_Screen9_screen_destroy(void)
 {
     if(ui_Screen9) lv_obj_delete(ui_Screen9);
     ui_Screen9 = NULL;
+    ui_ActiveClockLabel = NULL;
     int i;
     for(i = 0; i < (int)BUZZ_TONE_COUNT; i++) s_tone_btns[i] = NULL;
 }

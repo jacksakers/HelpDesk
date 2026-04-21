@@ -15,6 +15,7 @@
 #include "settings.h"
 #include "zen_frame.h"
 #include "task_master.h"
+#include "calendar.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -190,10 +191,11 @@ static void handle_tasks_get()
         const task_t *t = taskGet(i);
         if (!t) continue;
         JsonObject o = arr.add<JsonObject>();
-        o["id"]     = t->id;
-        o["text"]   = t->text;
-        o["repeat"] = t->repeat;
-        o["done"]   = t->done_today;
+        o["id"]       = t->id;
+        o["text"]     = t->text;
+        o["due_date"] = t->due_date;
+        o["repeat"]   = t->repeat;
+        o["done"]     = t->done_today;
     }
 
     int daily_xp, total_xp, level, streak;
@@ -226,14 +228,15 @@ static void handle_tasks_add()
         s_server.send(400, "application/json", "{\"error\":\"bad json\"}");
         return;
     }
-    const char *text = doc["text"] | "";
-    bool repeat      = doc["repeat"] | false;
+    const char *text     = doc["text"]     | "";
+    bool repeat           = doc["repeat"]   | false;
+    const char *due_date  = doc["due_date"] | "";
 
     if (strlen(text) == 0) {
         s_server.send(400, "application/json", "{\"error\":\"text required\"}");
         return;
     }
-    if (!taskAdd(text, repeat)) {
+    if (!taskAdd(text, repeat, due_date)) {
         s_server.send(507, "application/json", "{\"error\":\"task list full\"}");
         return;
     }
@@ -494,19 +497,90 @@ static void handle_fs_write()
     s_server.send(200, "application/json", "{\"ok\":true}");
 }
 
+// ── Calendar routes (/calendar, /calendar/add, /calendar/delete) ──────────────
+
+static void handle_calendar_get()
+{
+    JsonDocument doc;
+    JsonArray arr = doc.to<JsonArray>();
+    int count = calendarGetCount();
+    for (int i = 0; i < count; i++) {
+        const event_t *e = calendarGet(i);
+        if (!e) continue;
+        JsonObject o = arr.add<JsonObject>();
+        o["id"]         = e->id;
+        o["title"]      = e->title;
+        o["date"]       = e->date;
+        o["start_time"] = e->start_time;
+        o["end_time"]   = e->end_time;
+        o["all_day"]    = e->all_day;
+    }
+    String out;
+    serializeJson(doc, out);
+    s_server.send(200, "application/json", out);
+}
+
+static void handle_calendar_add()
+{
+    String body = s_server.arg("plain");
+    if (body.isEmpty()) {
+        s_server.send(400, "application/json", "{\"error\":\"empty body\"}");
+        return;
+    }
+    JsonDocument doc;
+    if (deserializeJson(doc, body)) {
+        s_server.send(400, "application/json", "{\"error\":\"bad json\"}");
+        return;
+    }
+    const char *title      = doc["title"]      | "";
+    const char *date       = doc["date"]       | "";
+    const char *start_time = doc["start_time"] | "";
+    const char *end_time   = doc["end_time"]   | "";
+    bool all_day           = doc["all_day"]    | false;
+
+    if (strlen(title) == 0 || strlen(date) == 0) {
+        s_server.send(400, "application/json", "{\"error\":\"title and date required\"}");
+        return;
+    }
+    if (!calendarAddEvent(title, date, start_time, end_time, all_day)) {
+        s_server.send(507, "application/json", "{\"error\":\"calendar full\"}");
+        return;
+    }
+    s_server.send(200, "application/json", "{\"ok\":true}");
+}
+
+static void handle_calendar_delete()
+{
+    String body = s_server.arg("plain");
+    JsonDocument doc;
+    if (body.isEmpty() || deserializeJson(doc, body)) {
+        s_server.send(400, "application/json", "{\"error\":\"bad json\"}");
+        return;
+    }
+    uint32_t id = doc["id"] | 0u;
+    if (!calendarDeleteEvent(id)) {
+        s_server.send(404, "application/json", "{\"error\":\"not found\"}");
+        return;
+    }
+    s_server.send(200, "application/json", "{\"ok\":true}");
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 void httpServerInit(void)
 {
-    s_server.on("/status",        HTTP_GET,  handle_status);
-    s_server.on("/upload/image",  HTTP_POST, handle_upload_done, handle_file_upload);
-    s_server.on("/upload/audio",  HTTP_POST, handle_upload_done, handle_file_upload);
-    s_server.on("/settings",      HTTP_GET,  handle_settings_get);
-    s_server.on("/settings",      HTTP_POST, handle_settings_post);
-    s_server.on("/tasks",         HTTP_GET,  handle_tasks_get);
-    s_server.on("/tasks/add",     HTTP_POST, handle_tasks_add);
-    s_server.on("/tasks/complete",HTTP_POST, handle_tasks_complete);
-    s_server.on("/tasks/delete",  HTTP_POST, handle_tasks_delete);
+    s_server.on("/status",          HTTP_GET,  handle_status);
+    s_server.on("/upload/image",    HTTP_POST, handle_upload_done, handle_file_upload);
+    s_server.on("/upload/audio",    HTTP_POST, handle_upload_done, handle_file_upload);
+    s_server.on("/settings",        HTTP_GET,  handle_settings_get);
+    s_server.on("/settings",        HTTP_POST, handle_settings_post);
+    s_server.on("/tasks",           HTTP_GET,  handle_tasks_get);
+    s_server.on("/tasks/add",       HTTP_POST, handle_tasks_add);
+    s_server.on("/tasks/complete",  HTTP_POST, handle_tasks_complete);
+    s_server.on("/tasks/delete",    HTTP_POST, handle_tasks_delete);
+    s_server.on("/calendar",        HTTP_GET,  handle_calendar_get);
+    s_server.on("/calendar/add",    HTTP_POST, handle_calendar_add);
+    s_server.on("/calendar/delete", HTTP_POST, handle_calendar_delete);
     /* DeskDrive file-system API */
     s_server.on("/api/fs/list",     HTTP_GET,  handle_fs_list);
     s_server.on("/api/fs/download", HTTP_GET,  handle_fs_download);
