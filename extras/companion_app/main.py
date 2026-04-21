@@ -1,50 +1,25 @@
 ﻿# Project  : HelpDesk
 # File     : main.py
-# Purpose  : FastAPI app — routes, WebSocket hub, startup, and entry point
-# Depends  : serial_comm, telemetry, macros, media_manager, settings_store, static/index.html
+# Purpose  : FastAPI app — app setup, WebSocket hub, serial event routing, startup
+# Depends  : serial_comm, telemetry, macros, notifications, state, routes/*
 
 import asyncio
-import json
 import logging
-import tempfile
 from pathlib import Path
-from typing import Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 import uvicorn
 
-import serial_comm
-import telemetry
 import macros
-import media_manager
-import settings_store
 import notifications
+import serial_comm
 import serial_transport
-
-# ── Input validation constants ───────────────────────────────────────────────
-_VALID_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".gif"}
-_VALID_AUDIO_EXTS = {".mp3"}
-_MAX_IMAGE_BYTES  = 10 * 1024 * 1024   # 10 MB
-_MAX_AUDIO_BYTES  = 50 * 1024 * 1024   # 50 MB
-
-
-class _SettingsBody(BaseModel):
-    wifi_ssid:     Optional[str] = None
-    wifi_password: Optional[str] = None
-    owm_api_key:   Optional[str] = None
-    zip_code:      Optional[str] = None
-    units:         Optional[str] = None
-    device_ip:     Optional[str] = None
-    companion_ip:  Optional[str] = None
-
-
-class _TaskAddBody(BaseModel):
-    text:     str
-    repeat:   bool = False
-    due_date: Optional[str] = None
+import settings_store
+import state
+import telemetry
+from routes import calendar, drive, media, settings, tasks, voice
 
 app = FastAPI(title="HelpDesk Companion App")
 logging.basicConfig(level=logging.INFO)
@@ -52,42 +27,16 @@ logging.basicConfig(level=logging.INFO)
 _STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
-
-# ── WebSocket connection manager ─────────────────────────────────────────────
-
-class _ConnectionManager:
-    """Tracks all active dashboard WebSocket clients and broadcasts to them."""
-
-    def __init__(self):
-        self._clients: set[WebSocket] = set()
-
-    async def connect(self, ws: WebSocket) -> None:
-        await ws.accept()
-        self._clients.add(ws)
-
-    def disconnect(self, ws: WebSocket) -> None:
-        self._clients.discard(ws)
-
-    async def broadcast(self, message: dict) -> None:
-        for ws in list(self._clients):
-            try:
-                await ws.send_json(message)
-            except Exception:
-                self._clients.discard(ws)
+# ── Register route modules ────────────────────────────────────────────────────
+app.include_router(tasks.router)
+app.include_router(calendar.router)
+app.include_router(drive.router)
+app.include_router(media.router)
+app.include_router(settings.router)
+app.include_router(voice.router)
 
 
-_manager = _ConnectionManager()
-
-# Last known device_info payload — sent to new dashboard clients on connect
-# so they see device state even if they opened after the hello was received.
-_last_device_info: dict | None = None
-
-# Track the active screen reported by the device so telemetry is only sent
-# when the PC Monitor screen is visible (avoids flooding the serial link).
-_current_screen: str = ""
-
-
-# ── Routes ───────────────────────────────────────────────────────────────────
+# ── Dashboard ─────────────────────────────────────────────────────────────────
 
 @app.get("/")
 async def serve_dashboard():
@@ -97,12 +46,12 @@ async def serve_dashboard():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """Streams live telemetry to the dashboard client."""
-    await _manager.connect(websocket)
+    await state.manager.connect(websocket)
     # Send cached device info immediately so a newly-opened dashboard
     # sees the device card without waiting for the next hello/status event.
-    if _last_device_info:
+    if state.last_device_info:
         try:
-            await websocket.send_json(_last_device_info)
+            await websocket.send_json(state.last_device_info)
         except Exception:
             pass
     try:
@@ -113,7 +62,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         logging.info("Dashboard client disconnected.")
     finally:
-        _manager.disconnect(websocket)
+        state.manager.disconnect(websocket)
 
 
 @app.post("/api/macros/{macro_id}/trigger")
@@ -122,7 +71,7 @@ async def trigger_macro(macro_id: str):
     logging.info(f"Dashboard triggered macro: {macro_id}")
     action = macros.execute(macro_id)
     serial_comm.send(f'{{"event":"macro_ok","id":"{macro_id}"}}\n')
-    await _manager.broadcast({
+    await state.manager.broadcast({
         "type": "macro_event",
         "macro_id": macro_id,
         "action": action,
@@ -131,108 +80,7 @@ async def trigger_macro(macro_id: str):
     return {"status": "success", "macro_id": macro_id, "message": action}
 
 
-# ── Media routes ─────────────────────────────────────────────────────────────
-
-@app.post("/api/media/image")
-async def upload_image(file: UploadFile = File(...)):
-    """Receives an image, converts to LVGL .bin, saves locally, then attempts WiFi then serial upload."""
-    ext = Path(file.filename or "").suffix.lower()
-    if ext not in _VALID_IMAGE_EXTS:
-        raise HTTPException(400, f"Invalid image type. Allowed: {sorted(_VALID_IMAGE_EXTS)}")
-    data = await file.read()
-    if len(data) > _MAX_IMAGE_BYTES:
-        raise HTTPException(413, "Image exceeds 10 MB limit")
-    processed, out_name = media_manager.process_image(data, file.filename or "image")
-    saved = media_manager.save_image(processed, out_name)
-    device_ip = settings_store.get("device_ip", "")
-    remote_path = f"/images/{out_name}"
-    sent = await media_manager.upload_to_device(saved, remote_path, device_ip) if device_ip else False
-    if not sent:
-        sent = await serial_transport.fs_upload(remote_path, saved.read_bytes())
-    return {"status": "ok", "filename": out_name, "sent_to_device": sent}
-
-
-@app.post("/api/media/audio")
-async def upload_audio(file: UploadFile = File(...)):
-    """Receives an MP3, saves locally, then attempts WiFi then serial upload."""
-    ext = Path(file.filename or "").suffix.lower()
-    if ext not in _VALID_AUDIO_EXTS:
-        raise HTTPException(400, "Only .mp3 files are supported")
-    data = await file.read()
-    if len(data) > _MAX_AUDIO_BYTES:
-        raise HTTPException(413, "Audio exceeds 50 MB limit")
-    safe_name = file.filename or "audio.mp3"
-    saved = media_manager.save_audio(data, safe_name)
-    device_ip = settings_store.get("device_ip", "")
-    remote_path = f"/mp3/{saved.name}"
-    sent = await media_manager.upload_to_device(saved, remote_path, device_ip) if device_ip else False
-    if not sent:
-        sent = await serial_transport.fs_upload(remote_path, saved.read_bytes())
-    return {"status": "ok", "filename": saved.name, "sent_to_device": sent}
-
-
-# ── Settings routes ───────────────────────────────────────────────────────────
-
-@app.get("/api/settings")
-async def get_settings():
-    """Returns current settings, preferring live device values.
-    Priority: WiFi → serial → local cache."""
-    import httpx
-    local = settings_store.load()
-    device_ip = local.get("device_ip", "")
-
-    # 1. Try WiFi
-    if device_ip:
-        try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                resp = await client.get(f"http://{device_ip}/settings")
-            if resp.status_code == 200:
-                device_settings = resp.json()
-                device_settings["device_ip"] = device_ip
-                return device_settings
-        except Exception as e:
-            logging.warning(f"[Settings] WiFi fetch failed ({device_ip}): {e}")
-
-    # 2. Try serial
-    serial_settings = await serial_transport.get_settings()
-    if serial_settings:
-        serial_settings["device_ip"] = device_ip
-        logging.info("[Settings] Fetched from device via serial.")
-        return serial_settings
-
-    # 3. Local cache
-    return local
-
-
-@app.post("/api/settings")
-async def update_settings(body: _SettingsBody):
-    """Saves updated device settings locally and forwards them to the device if reachable."""
-    updates = body.model_dump(exclude_none=True)
-    settings_store.save(updates)
-
-    # Forward to the ESP32 over Wi-Fi so it can update its own SD-card settings file.
-    device_ip = settings_store.get("device_ip", "")
-    forwarded = False
-    if device_ip:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.post(
-                    f"http://{device_ip}/settings",
-                    json=updates,
-                )
-            forwarded = resp.status_code == 200
-        except Exception as e:
-            logging.warning(f"[Settings] Forward to device failed: {e}")
-
-    # Also push via serial — works even before WiFi is configured (e.g. first-time WiFi credentials)
-    serial_payload = json.dumps({"event": "settings", **updates})
-    serial_comm.send(serial_payload + "\n")
-
-    return {"status": "saved", "forwarded_to_device": forwarded}
-
-
-# ── Background telemetry task ────────────────────────────────────────────────
+# ── Background telemetry task ─────────────────────────────────────────────────
 
 async def _telemetry_loop() -> None:
     """Pushes PC metrics to the HelpDesk every 5 seconds over serial.
@@ -241,19 +89,17 @@ async def _telemetry_loop() -> None:
     """
     while True:
         await asyncio.sleep(5)
-        if serial_comm.is_connected() and _current_screen == "pc_monitor":
+        if serial_comm.is_connected() and state.current_screen == "pc_monitor":
             data = telemetry.get()
             serial_comm.send(f'{{"c":{data["cpu"]},"r":{data["ram"]}}}\n')
 
 
-# ── Serial event routing ─────────────────────────────────────────────────────
+# ── Serial event routing ──────────────────────────────────────────────────────
 
 async def _on_serial_event(data: dict) -> None:
     """Routes JSON events received from the ESP32 to the right handler."""
-    global _last_device_info, _current_screen
     event = data.get("event")
 
-    # ── Serial transport responses (internal, not forwarded to dashboard) ──────
     if event == "resp":
         serial_transport.dispatch_response(data)
         return
@@ -262,10 +108,7 @@ async def _on_serial_event(data: dict) -> None:
         return
 
     if event == "raw_line":
-        # Non-JSON device output (boot messages, debug prints, etc.).
-        # Already logged to terminal by serial_comm; also show in dashboard log.
-        line = data.get("line", "")
-        await _manager.broadcast({"type": "serial_log", "label": line})
+        await state.manager.broadcast({"type": "serial_log", "label": data.get("line", "")})
         return
 
     if event == "hello":
@@ -273,38 +116,32 @@ async def _on_serial_event(data: dict) -> None:
         ssid = data.get("ssid", "")
         fw   = data.get("fw", "")
         sd   = "ok" if data.get("sd_ok") else "missing"
-        # If the device hasn't got a WiFi address yet, fall back to the
-        # manually-saved IP so the dashboard card shows something useful.
+        # Fall back to manually-saved IP if device hasn't got a WiFi address yet.
         if not ip or ip == "0.0.0.0":
             ip = settings_store.get("device_ip", "") or ip
         logging.info(f"[RX] device hello — ip={ip}  ssid={ssid}  fw={fw}  sd={sd}")
         if ip and ip != "0.0.0.0" and not settings_store.get("device_ip"):
             settings_store.save({"device_ip": ip})
             logging.info(f"[Handshake] Auto-saved device IP: {ip}")
-        _last_device_info = {
-            "type":         "device_info",
-            "ip":           ip,
-            "ssid":         ssid,
-            "fw":           fw,
-            "sd_ok":        data.get("sd_ok", False),
-            "sd_total_mb":  data.get("sd_total_mb", 0),
-            "sd_used_mb":   data.get("sd_used_mb", 0),
+        state.last_device_info = {
+            "type":        "device_info",
+            "ip":          ip,
+            "ssid":        ssid,
+            "fw":          fw,
+            "sd_ok":       data.get("sd_ok", False),
+            "sd_total_mb": data.get("sd_total_mb", 0),
+            "sd_used_mb":  data.get("sd_used_mb", 0),
         }
-        await _manager.broadcast(_last_device_info)
-        await _manager.broadcast({"type": "serial_log", "label": f"hello — ip:{ip}  fw:{fw}  sd:{sd}"})
+        await state.manager.broadcast(state.last_device_info)
+        await state.manager.broadcast({"type": "serial_log", "label": f"hello — ip:{ip}  fw:{fw}  sd:{sd}"})
         return
 
     if event == "status":
         screen  = data.get("screen", "")
         sd_used = data.get("sd_used_mb", 0)
-        _current_screen = screen
-        # logging.info(f"[RX] device status — screen={screen}  sd_used={sd_used} MB")
-        await _manager.broadcast({
-            "type":       "device_status",
-            "screen":     screen,
-            "sd_used_mb": sd_used,
-        })
-        await _manager.broadcast({"type": "serial_log", "label": f"status — screen:{screen}  sd:{sd_used} MB"})
+        state.current_screen = screen
+        await state.manager.broadcast({"type": "device_status", "screen": screen, "sd_used_mb": sd_used})
+        await state.manager.broadcast({"type": "serial_log", "label": f"status — screen:{screen}  sd:{sd_used} MB"})
         return
 
     if event == "btn_press":
@@ -313,583 +150,26 @@ async def _on_serial_event(data: dict) -> None:
         action = macros.execute(macro_id)
         serial_comm.send(f'{{"event":"macro_ok","id":"{macro_id}"}}\n')
         logging.info(f"[TX] macro_ok  id={macro_id}")
-        await _manager.broadcast({
-            "type": "macro_event",
+        await state.manager.broadcast({
+            "type":     "macro_event",
             "macro_id": macro_id,
-            "action": action,
-            "source": "device",
+            "action":   action,
+            "source":   "device",
         })
 
 
 async def _on_notification_received(app_name: str, title: str, body: str) -> None:
-    """Forwards a notification event to all connected dashboard WebSocket clients."""
-    await _manager.broadcast({
-        "type":  "notification",
-        "app":   app_name,
-        "title": title,
-        "body":  body,
-    })
+    await state.manager.broadcast({"type": "notification", "app": app_name, "title": title, "body": body})
 
 
 async def _on_connect_change(connected: bool) -> None:
-    """Notifies the dashboard when the HelpDesk serial connection changes."""
     status = "connected" if connected else "disconnected"
     logging.info(f"[Serial] HelpDesk {status}.")
-    await _manager.broadcast({"type": "serial_status", "connected": connected})
-    await _manager.broadcast({"type": "serial_log", "label": f"HelpDesk {status}"})
+    await state.manager.broadcast({"type": "serial_status", "connected": connected})
+    await state.manager.broadcast({"type": "serial_log", "label": f"HelpDesk {status}"})
 
 
-# ── Task routes (proxy to HelpDesk HTTP API) ─────────────────────────────────
-
-def _device_base_url() -> str | None:
-    ip = settings_store.get("device_ip", "")
-    return f"http://{ip}" if ip else None
-
-
-@app.get("/api/tasks")
-async def get_tasks():
-    """Fetches the current task list from the HelpDesk. Tries WiFi then serial."""
-    base = _device_base_url()
-
-    # 1. Try WiFi
-    if base:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(f"{base}/tasks")
-            if resp.status_code == 200:
-                return resp.json()
-        except Exception:
-            pass
-
-    # 2. Try serial
-    result = await serial_transport.task_list()
-    if result is not None:
-        return result
-
-    raise HTTPException(503, "Device unreachable (WiFi and serial both failed).")
-
-
-@app.post("/api/tasks/add")
-async def add_task(body: _TaskAddBody):
-    """Adds a new task to the HelpDesk task list. Tries WiFi then serial."""
-    if not body.text.strip():
-        raise HTTPException(400, "text must not be empty")
-    base = _device_base_url()
-
-    # 1. Try WiFi
-    if base:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                payload: dict = {"text": body.text.strip(), "repeat": body.repeat}
-                if body.due_date:
-                    payload["due_date"] = body.due_date
-                resp = await client.post(f"{base}/tasks/add", json=payload)
-            if resp.status_code == 200:
-                return resp.json()
-        except Exception:
-            pass
-
-    # 2. Try serial
-    ok = await serial_transport.task_add(body.text.strip(), body.repeat, body.due_date)
-    if ok:
-        return {"ok": True}
-    raise HTTPException(503, "Device unreachable (WiFi and serial both failed).")
-
-
-@app.post("/api/tasks/complete")
-async def complete_task(task_id: int):
-    """Marks a task as completed on the HelpDesk. Tries WiFi then serial."""
-    base = _device_base_url()
-
-    # 1. Try WiFi
-    if base:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.post(f"{base}/tasks/complete", json={"id": task_id})
-            if resp.status_code == 200:
-                return resp.json()
-        except Exception:
-            pass
-
-    # 2. Try serial
-    ok = await serial_transport.task_complete(task_id)
-    if ok:
-        return {"ok": True}
-    raise HTTPException(503, "Device unreachable (WiFi and serial both failed).")
-
-
-@app.post("/api/tasks/delete")
-async def delete_task(task_id: int):
-    """Deletes a task from the HelpDesk. Tries WiFi then serial."""
-    base = _device_base_url()
-
-    # 1. Try WiFi
-    if base:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.post(f"{base}/tasks/delete", json={"id": task_id})
-            if resp.status_code == 200:
-                return resp.json()
-        except Exception:
-            pass
-
-    # 2. Try serial
-    ok = await serial_transport.task_delete(task_id)
-    if ok:
-        return {"ok": True}
-    raise HTTPException(503, "Device unreachable (WiFi and serial both failed).")
-
-
-# ── DeskDrive routes (proxy to HelpDesk /api/fs/* over Wi-Fi) ─────────────────
-
-def _validate_sd_path(path: str) -> str:
-    """Normalise and validate an SD card path. Rejects traversal attempts."""
-    import posixpath
-    clean = posixpath.normpath("/" + str(path).replace("\\", "/").lstrip("/"))
-    # After normpath, no component should be ".."
-    if any(part == ".." for part in clean.split("/")):
-        raise HTTPException(400, "Invalid path")
-    return clean
-
-
-@app.get("/api/drive/list")
-async def drive_list(dir: str = "/"):
-    """Lists a directory on the HelpDesk SD card. Tries WiFi then serial."""
-    path = _validate_sd_path(dir)
-    base = _device_base_url()
-
-    # 1. Try WiFi
-    if base:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=8.0) as client:
-                resp = await client.get(f"{base}/api/fs/list", params={"dir": path})
-            if resp.status_code == 200:
-                return resp.json()
-        except Exception:
-            pass
-
-    # 2. Try serial
-    result = await serial_transport.fs_list(path)
-    if result is not None:
-        return result
-
-    raise HTTPException(503, "Device unreachable (WiFi and serial both failed).")
-
-
-@app.get("/api/drive/download")
-async def drive_download(path: str):
-    """Streams a file from the HelpDesk SD card. Tries WiFi then serial."""
-    from fastapi.responses import Response
-    clean = _validate_sd_path(path)
-    base = _device_base_url()
-
-    content: bytes | None = None
-    mime = "application/octet-stream"
-
-    # 1. Try WiFi
-    if base:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.get(f"{base}/api/fs/download", params={"path": clean})
-            if resp.status_code == 200:
-                content = resp.content
-                mime = resp.headers.get("Content-Type", mime)
-        except Exception:
-            pass
-
-    # 2. Try serial
-    if content is None:
-        content = await serial_transport.fs_download(clean)
-        if content is None:
-            raise HTTPException(503, "Device unreachable (WiFi and serial both failed).")
-        # Guess MIME from extension when coming from serial.
-        ext = clean.rsplit(".", 1)[-1].lower() if "." in clean else ""
-        mime_map = {"txt": "text/plain", "md": "text/plain", "json": "text/plain",
-                    "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
-                    "bmp": "image/bmp", "mp3": "audio/mpeg"}
-        mime = mime_map.get(ext, "application/octet-stream")
-
-    filename = clean.rsplit("/", 1)[-1] or "download"
-    return Response(
-        content=content,
-        media_type=mime,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-@app.post("/api/drive/upload")
-async def drive_upload(dir: str = "/", file: UploadFile = File(...)):
-    """Uploads a file to the HelpDesk SD card. Tries WiFi then serial."""
-    dest_dir = _validate_sd_path(dir)
-    base = _device_base_url()
-    data = await file.read()
-    if len(data) > 50 * 1024 * 1024:
-        raise HTTPException(413, "File too large (50 MB max)")
-
-    # 1. Try WiFi
-    if base:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                resp = await client.post(
-                    f"{base}/api/fs/upload",
-                    params={"dir": dest_dir},
-                    files={"file": (file.filename, data, "application/octet-stream")},
-                )
-            if resp.status_code == 200:
-                return {"ok": True, "filename": file.filename}
-        except Exception:
-            pass
-
-    # 2. Try serial
-    import posixpath
-    dest_path = posixpath.join(dest_dir, file.filename or "upload.bin")
-    ok = await serial_transport.fs_upload(dest_path, data)
-    if ok:
-        return {"ok": True, "filename": file.filename}
-    raise HTTPException(503, "Device unreachable (WiFi and serial both failed).")
-
-
-@app.post("/api/drive/mkdir")
-async def drive_mkdir(body: dict):
-    """Creates a directory on the HelpDesk SD card. Tries WiFi then serial."""
-    raw_path = body.get("path", "")
-    path = _validate_sd_path(raw_path)
-    base = _device_base_url()
-
-    # 1. Try WiFi
-    if base:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=8.0) as client:
-                resp = await client.post(f"{base}/api/fs/mkdir", json={"path": path})
-            if resp.status_code == 200:
-                return resp.json()
-        except Exception:
-            pass
-
-    # 2. Try serial
-    ok = await serial_transport.fs_mkdir(path)
-    if ok:
-        return {"ok": True}
-    raise HTTPException(503, "Device unreachable (WiFi and serial both failed).")
-
-
-@app.post("/api/drive/delete")
-async def drive_delete(body: dict):
-    """Deletes a file or folder on the HelpDesk SD card. Tries WiFi then serial."""
-    raw_path = body.get("path", "")
-    path = _validate_sd_path(raw_path)
-    if path == "/":
-        raise HTTPException(400, "Cannot delete root")
-    base = _device_base_url()
-
-    # 1. Try WiFi
-    if base:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=8.0) as client:
-                resp = await client.post(f"{base}/api/fs/delete", json={"path": path})
-            if resp.status_code == 200:
-                return resp.json()
-        except Exception:
-            pass
-
-    # 2. Try serial
-    ok = await serial_transport.fs_delete(path)
-    if ok:
-        return {"ok": True}
-    raise HTTPException(503, "Device unreachable (WiFi and serial both failed).")
-
-
-class _DriveWriteBody(BaseModel):
-    path: str
-    content: str
-
-
-@app.post("/api/drive/write")
-async def drive_write(body: _DriveWriteBody):
-    """Write/overwrite a text file on the HelpDesk SD card. Tries WiFi then serial."""
-    path = _validate_sd_path(body.path)
-    if len(body.content) > 65536:
-        raise HTTPException(413, "Content too large (64 KB max)")
-    base = _device_base_url()
-
-    # 1. Try WiFi
-    if base:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(
-                    f"{base}/api/fs/write",
-                    json={"path": path, "content": body.content},
-                )
-            if resp.status_code == 200:
-                return {"ok": True}
-        except Exception:
-            pass
-
-    # 2. Try serial
-    ok = await serial_transport.fs_write(path, body.content)
-    if ok:
-        return {"ok": True}
-    raise HTTPException(503, "Device unreachable (WiFi and serial both failed).")
-
-
-@app.post("/api/drive/convert")
-async def drive_convert(request: Request):
-    """
-    Download a JPG/PNG from the device SD card, convert it to an LVGL v9 .bin,
-    and upload the result back to the same directory on the device.
-    Body JSON: {"path": "/images/foo.jpg", "device_ip": "192.168.x.y"}
-    Tries WiFi for each step, then falls back to serial.
-    """
-    try:
-        data = await request.json()
-    except Exception:
-        raise HTTPException(400, "Invalid JSON")
-
-    path = _validate_sd_path(data.get("path", ""))
-    device_ip = data.get("device_ip") or settings_store.get("device_ip")
-
-    try:
-        from PIL import Image
-        import io as _io
-    except ImportError:
-        raise HTTPException(503, "Pillow not installed — run: pip install pillow")
-
-    import httpx
-    from pathlib import Path as _Path
-
-    stem     = _Path(path).stem
-    dir_path = str(_Path(path).parent)
-    if dir_path == ".":
-        dir_path = "/"
-    bin_name = f"{stem}.bin"
-
-    # ── Step 1: Download source image ──────────────────────────────────────────
-    img_bytes: bytes | None = None
-
-    if device_ip:
-        try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                dl = await client.get(
-                    f"http://{device_ip}/api/fs/download",
-                    params={"path": path},
-                )
-            if dl.status_code == 200:
-                img_bytes = dl.content
-            else:
-                logging.warning(f"[Convert] WiFi download HTTP {dl.status_code}")
-        except Exception as e:
-            logging.warning(f"[Convert] WiFi download failed: {e}")
-
-    if img_bytes is None:
-        logging.info("[Convert] Falling back to serial for download.")
-        img_bytes = await serial_transport.fs_download(path)
-        if img_bytes is None:
-            raise HTTPException(502, "Could not download file from device (WiFi and serial failed).")
-
-    # ── Step 2: Convert to LVGL .bin (local) ───────────────────────────────────
-    try:
-        img = Image.open(_io.BytesIO(img_bytes)).convert("RGB")
-        bin_data = media_manager._to_lvgl_bin(
-            img, media_manager._DISPLAY_W, media_manager._DISPLAY_H
-        )
-    except Exception as e:
-        raise HTTPException(500, f"Image conversion failed: {e}")
-
-    # ── Step 3: Upload .bin back to device ─────────────────────────────────────
-    upload_ok = False
-
-    if device_ip:
-        try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                upload = await client.post(
-                    f"http://{device_ip}/api/fs/upload",
-                    params={"dir": dir_path},
-                    files={"file": (bin_name, bin_data, "application/octet-stream")},
-                )
-            upload_ok = upload.status_code == 200
-            if not upload_ok:
-                logging.warning(f"[Convert] WiFi upload HTTP {upload.status_code}")
-        except Exception as e:
-            logging.warning(f"[Convert] WiFi upload failed: {e}")
-
-    if not upload_ok:
-        logging.info("[Convert] Falling back to serial for upload.")
-        dest = f"{dir_path}/{bin_name}" if dir_path != "/" else f"/{bin_name}"
-        upload_ok = await serial_transport.fs_upload(dest, bin_data)
-
-    if not upload_ok:
-        raise HTTPException(502, "Could not upload .bin to device (WiFi and serial failed).")
-
-    logging.info(f"[Convert] {path} → {dir_path}/{bin_name}")
-    return {"ok": True, "bin_path": f"{dir_path}/{bin_name}"}
-
-
-# ── Voice transcription route ─────────────────────────────────────────────────
-
-_MAX_VOICE_BYTES = 2 * 1024 * 1024   # 2 MB — 3 s @ 16 kHz 16-bit is only ~96 KB
-
-# Lazily loaded so startup is fast even if faster-whisper isn't installed.
-_whisper_model = None
-
-def _get_whisper_model():
-    global _whisper_model
-    if _whisper_model is None:
-        try:
-            from faster_whisper import WhisperModel
-        except ImportError:
-            raise HTTPException(501,
-                "faster-whisper is not installed. Run: pip install faster-whisper")
-        logging.info("[Voice] Loading Whisper 'small' model (first call only)...")
-        _whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
-        logging.info("[Voice] Whisper model ready.")
-    return _whisper_model
-
-
-@app.post("/api/voice/transcribe")
-async def voice_transcribe(request: Request):
-    """Receives a raw WAV body (Content-Type: audio/wav) from the HelpDesk mic,
-    runs faster-whisper, and returns {"text": "<transcription>"}.
-
-    The ESP32 sends a plain HTTP POST with raw bytes — NOT multipart form data.
-    Requires: pip install faster-whisper
-    The first call downloads the small model (~150 MB) to ~/.cache/huggingface/.
-    """
-    data = await request.body()
-    if len(data) > _MAX_VOICE_BYTES:
-        raise HTTPException(413, "Audio exceeds 2 MB limit.")
-    if len(data) < 44:
-        raise HTTPException(400, "Body too small to be a valid WAV.")
-
-    model = _get_whisper_model()
-
-    # Write to temp file — Whisper needs a path, not bytes in memory.
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-        tmp.write(data)
-        tmp_path = tmp.name
-
-    try:
-        segments, _ = model.transcribe(tmp_path, language="en", beam_size=1)
-        text = " ".join(seg.text.strip() for seg in segments).strip()
-    except Exception as e:
-        logging.error(f"[Voice] Transcription failed: {e}")
-        raise HTTPException(500, f"Transcription error: {e}")
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
-
-    logging.info(f"[Voice] Transcribed: \"{text}\"")
-    return {"text": text}
-
-
-# ── Calendar routes (proxy to HelpDesk /calendar/*) ──────────────────────────
-
-class _CalendarAddBody(BaseModel):
-    title:      str
-    date:       str
-    start_time: str  = ""
-    end_time:   str  = ""
-    all_day:    bool = False
-
-
-class _CalendarDeleteBody(BaseModel):
-    id: int
-
-
-@app.get("/api/calendar")
-async def get_calendar():
-    """Fetches all calendar events from the HelpDesk. Tries WiFi then serial."""
-    base = _device_base_url()
-
-    # 1. Try WiFi
-    if base:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(f"{base}/calendar")
-            if resp.status_code == 200:
-                return resp.json()
-        except Exception:
-            pass
-
-    # 2. Try serial
-    result = await serial_transport.cal_list()
-    if result is not None:
-        return result
-
-    raise HTTPException(503, "Device unreachable (WiFi and serial both failed).")
-
-
-@app.post("/api/calendar/add")
-async def add_calendar_event(body: _CalendarAddBody):
-    """Adds a calendar event to the HelpDesk. Tries WiFi then serial."""
-    if not body.title.strip():
-        raise HTTPException(400, "title must not be empty")
-    if not body.date:
-        raise HTTPException(400, "date is required")
-    base = _device_base_url()
-
-    payload = {
-        "title":      body.title.strip(),
-        "date":       body.date,
-        "start_time": body.start_time,
-        "end_time":   body.end_time,
-        "all_day":    body.all_day,
-    }
-
-    # 1. Try WiFi
-    if base:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.post(f"{base}/calendar/add", json=payload)
-            if resp.status_code == 200:
-                return resp.json()
-        except Exception:
-            pass
-
-    # 2. Try serial
-    ok = await serial_transport.cal_add(
-        payload["title"], payload["date"],
-        payload["start_time"], payload["end_time"], payload["all_day"]
-    )
-    if ok:
-        return {"ok": True}
-    raise HTTPException(503, "Device unreachable (WiFi and serial both failed).")
-
-
-@app.post("/api/calendar/delete")
-async def delete_calendar_event(body: _CalendarDeleteBody):
-    """Deletes a calendar event from the HelpDesk. Tries WiFi then serial."""
-    base = _device_base_url()
-
-    # 1. Try WiFi
-    if base:
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.post(f"{base}/calendar/delete", json={"id": body.id})
-            if resp.status_code == 200:
-                return resp.json()
-        except Exception:
-            pass
-
-    # 2. Try serial
-    ok = await serial_transport.cal_delete(body.id)
-    if ok:
-        return {"ok": True}
-    raise HTTPException(503, "Device unreachable (WiFi and serial both failed).")
-
-
-# ── Startup ──────────────────────────────────────────────────────────────────
+# ── Startup / shutdown ────────────────────────────────────────────────────────
 
 @app.on_event("startup")
 async def startup_event():
@@ -906,7 +186,7 @@ async def shutdown_event():
     serial_comm.disconnect()
 
 
-# ── Entry point ──────────────────────────────────────────────────────────────
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     print("========================================================")
