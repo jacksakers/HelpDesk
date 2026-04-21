@@ -150,7 +150,7 @@ void ui_Screen6_screen_destroy(void)
 {
     ui_ZenImage       = NULL;
     ui_ZenPlaceholder = NULL;
-    ui_ActiveClockLabel = NULL;
+    uiClearHeaderClock(ui_Screen6);
     if(ui_Screen6) lv_obj_delete(ui_Screen6);
     ui_Screen6 = NULL;
 }

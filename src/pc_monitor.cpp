@@ -6,6 +6,7 @@
 #include "pc_monitor.h"
 #include "handshake.h"
 #include "notifications.h"
+#include "serial_fs.h"
 #include "settings.h"
 #include "ui.h"
 #include <Arduino.h>
@@ -14,7 +15,7 @@
 
 // ── Constants ────────────────────────────────────────────────────────────────
 #define PC_MONITOR_TIMEOUT_MS  6000UL   // Show "Disconnected" after 6 s without data
-#define LINE_BUF_SZ             224     // Sized for the largest companion packet (hello ~190 chars)
+#define LINE_BUF_SZ             512     // Must hold upload_chunk lines (192B raw → 256B base64 + JSON overhead ~360 chars)
 
 // ── Private state ────────────────────────────────────────────────────────────
 static char          s_line[LINE_BUF_SZ];
@@ -69,6 +70,12 @@ static void process_line(const char * json)
         if (app[0] != '\0' && title[0] != '\0') {
             notifAdd(app, title, body);
         }
+        return;
+    }
+
+    /* Route all other cmd packets (fs, tasks, calendar, settings) to serial_fs. */
+    if (cmd[0] != '\0') {
+        serialFsDispatch(doc);
         return;
     }
 

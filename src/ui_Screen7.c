@@ -210,7 +210,7 @@ void ui_Screen7_screen_destroy(void)
     ui_GpuLabel      = NULL;
     ui_PcStatusLabel = NULL;
     ui_SerialLogArea = NULL;
-    ui_ActiveClockLabel = NULL;
+    uiClearHeaderClock(ui_Screen7);
 
     if(ui_Screen7) lv_obj_delete(ui_Screen7);
     ui_Screen7 = NULL;

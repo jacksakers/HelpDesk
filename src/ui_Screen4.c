@@ -136,7 +136,7 @@ void ui_Screen4_screen_init(void)
 void ui_Screen4_screen_destroy(void)
 {
     ui_NotifList = NULL;
-    ui_ActiveClockLabel = NULL;
+    uiClearHeaderClock(ui_Screen4);
 
     if(ui_Screen4) lv_obj_delete(ui_Screen4);
     ui_Screen4 = NULL;

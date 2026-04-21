@@ -234,7 +234,7 @@ void ui_Screen9_screen_destroy(void)
 {
     if(ui_Screen9) lv_obj_delete(ui_Screen9);
     ui_Screen9 = NULL;
-    ui_ActiveClockLabel = NULL;
+    uiClearHeaderClock(ui_Screen9);
     int i;
     for(i = 0; i < (int)BUZZ_TONE_COUNT; i++) s_tone_btns[i] = NULL;
 }

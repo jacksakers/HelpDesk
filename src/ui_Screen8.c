@@ -145,7 +145,7 @@ void ui_Screen8_screen_init(void)
 
 void ui_Screen8_screen_destroy(void)
 {
-    ui_ActiveClockLabel = NULL;
+    uiClearHeaderClock(ui_Screen8);
     if(ui_Screen8) lv_obj_delete(ui_Screen8);
     ui_Screen8 = NULL;
 }

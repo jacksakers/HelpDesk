@@ -13,15 +13,42 @@ static unsigned long s_last_update_ms = 0;
 
 // ─── Mini-clock label ────────────────────────────────────────────────────────
 lv_obj_t * ui_ActiveClockLabel = NULL;
+static lv_obj_t * s_clock_owner = NULL;  /* screen that owns the active clock */
 
 void uiAddHeaderClock(lv_obj_t * header, int right_offset)
 {
     lv_obj_t * clk = lv_label_create(header);
-    lv_label_set_text(clk, "--:-- --");
+
+    /* Show current time immediately — no waiting for next 1-s tick */
+    time_t raw = time(nullptr);
+    if (raw > 100000L) {
+        struct tm t;
+        localtime_r(&raw, &t);
+        char buf[12];
+        strftime(buf, sizeof(buf), "%I:%M %p", &t);
+        lv_label_set_text(clk, buf);
+    } else {
+        lv_label_set_text(clk, "--:-- --");
+    }
+
     lv_obj_set_style_text_color(clk, lv_color_hex(0xBBBBCC), 0);
     lv_obj_set_style_text_font(clk, &lv_font_montserrat_12, 0);
     lv_obj_align(clk, LV_ALIGN_RIGHT_MID, right_offset, 0);
+
+    /* header is a direct child of the screen object */
+    s_clock_owner      = lv_obj_get_parent(header);
     ui_ActiveClockLabel = clk;
+}
+
+void uiClearHeaderClock(lv_obj_t * screen)
+{
+    /* Only clear if this screen is still the owner.
+       If the new screen already called uiAddHeaderClock() first, s_clock_owner
+       will already belong to the new screen, so we leave it alone. */
+    if (s_clock_owner == screen) {
+        ui_ActiveClockLabel = NULL;
+        s_clock_owner       = NULL;
+    }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

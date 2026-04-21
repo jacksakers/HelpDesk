@@ -188,7 +188,7 @@ void ui_Screen3_screen_destroy(void)
     ui_PomoArc       = NULL;
     ui_PomoTimeLabel = NULL;
     ui_PomoPhaseLabel = NULL;
-    ui_ActiveClockLabel = NULL;
+    uiClearHeaderClock(ui_Screen3);
 
     if(ui_Screen3) lv_obj_delete(ui_Screen3);
     ui_Screen3 = NULL;

@@ -31,7 +31,7 @@
 
 void setup()
 {
-    Serial.begin(115200);
+    Serial.begin(460800);
     delay(500);   // brief settle time for UART
 
     Serial.println();

@@ -31,7 +31,7 @@ _HEARTBEAT_TIMEOUT_S  = 15.0  # seconds of silence before forcing disconnect
 def _try_open(device: str, description: str) -> bool:
     global _port
     try:
-        _port = serial.Serial(device, 115200, timeout=1)
+        _port = serial.Serial(device, 460800, timeout=1)
         logging.info(f"[Serial] Connected on {device} ({description})")
         return True
     except serial.SerialException as e:

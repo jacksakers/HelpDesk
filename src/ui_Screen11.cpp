@@ -494,7 +494,7 @@ void ui_Screen11_screen_destroy(void)
     s_kbd         = NULL;
     s_hour_roller = NULL;
     s_min_roller  = NULL;
-    ui_ActiveClockLabel = NULL;
+    uiClearHeaderClock(ui_Screen11);
 
     if (ui_Screen11) lv_obj_delete(ui_Screen11);
     ui_Screen11 = NULL;

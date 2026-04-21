@@ -214,7 +214,7 @@ void ui_Screen1_screen_init(void)
 void ui_Screen1_screen_destroy(void)
 {
     s_wifi_icon = NULL;
-    ui_ActiveClockLabel = NULL;
+    uiClearHeaderClock(ui_Screen1);
     if (s_wifi_timer) { lv_timer_delete(s_wifi_timer); s_wifi_timer = NULL; }
     ui_NotifTile  = NULL;
     ui_NotifBadge = NULL;

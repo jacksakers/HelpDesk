@@ -459,5 +459,5 @@ void ui_Screen5_screen_destroy(void)
 
     if (ui_Screen5) lv_obj_delete(ui_Screen5);
     ui_Screen5 = NULL;
-    ui_ActiveClockLabel = NULL;
+    uiClearHeaderClock(ui_Screen5);
 }

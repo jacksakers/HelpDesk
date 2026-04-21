@@ -43,6 +43,12 @@ extern lv_obj_t * ui_ActiveClockLabel;
 // Also sets ui_ActiveClockLabel to the new label.
 void uiAddHeaderClock(lv_obj_t * header, int right_offset);
 
+// Call from each screen's destroy function instead of writing
+// `ui_ActiveClockLabel = NULL` directly.  Only clears the pointer if
+// `screen` is the owner — prevents the old screen's destroy from wiping
+// out the pointer that was just claimed by the incoming screen.
+void uiClearHeaderClock(lv_obj_t * screen);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
