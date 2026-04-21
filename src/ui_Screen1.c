@@ -72,6 +72,13 @@ static void tile_clicked_ev(lv_event_t * e)
     _ui_screen_change(app->screen, LV_SCREEN_LOAD_ANIM_MOVE_LEFT, 300, 0, app->init);
 }
 
+static void wifi_btn_ev(lv_event_t * e)
+{
+    (void)e;
+    _ui_screen_change(&ui_Screen12, LV_SCREEN_LOAD_ANIM_MOVE_LEFT, 300, 0,
+                      ui_Screen12_screen_init);
+}
+
 static void settings_btn_ev(lv_event_t * e)
 {
     (void)e;
@@ -97,12 +104,23 @@ static void build_header(lv_obj_t * scr)
     lv_obj_set_style_text_color(title, lv_color_white(), 0);
     lv_obj_center(title);
 
-    /* WiFi status icon — left side of header */
-    s_wifi_icon = lv_label_create(hdr);
+    /* WiFi button — left side of header; tapping opens the WiFi settings screen */
+    lv_obj_t * wifi_btn = lv_button_create(hdr);
+    lv_obj_set_size(wifi_btn, 38, HDR_H - 2);
+    lv_obj_set_pos(wifi_btn, 2, 1);
+    lv_obj_set_style_bg_color(wifi_btn, lv_color_hex(CLR_HDR), 0);
+    lv_obj_set_style_bg_color(wifi_btn, lv_color_hex(0x0D1321),
+                              LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(wifi_btn, 0, 0);
+    lv_obj_set_style_shadow_width(wifi_btn, 0, 0);
+    lv_obj_set_style_pad_all(wifi_btn, 0, 0);
+    lv_obj_add_event_cb(wifi_btn, wifi_btn_ev, LV_EVENT_CLICKED, NULL);
+
+    s_wifi_icon = lv_label_create(wifi_btn);
     lv_label_set_text(s_wifi_icon, LV_SYMBOL_WIFI);
     lv_obj_set_style_text_color(s_wifi_icon, lv_color_hex(0x555566), 0); /* muted until connected */
     lv_obj_set_style_text_font(s_wifi_icon, &lv_font_montserrat_12, 0);
-    lv_obj_align(s_wifi_icon, LV_ALIGN_LEFT_MID, 8, 0);
+    lv_obj_center(s_wifi_icon);
 
     /* Mini clock — just left of the settings gear */
     uiAddHeaderClock(hdr, -48);
