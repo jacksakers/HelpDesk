@@ -1,0 +1,86 @@
+Feature Design: DeskDrive (Native USB MSC)
+
+1. Concept Overview
+
+Using the ESP32-S3's Native USB Mass Storage Class (MSC) library, the HelpDesk acts as a physical flash drive when connected to the host PC via the OTG port. This enables native, drag-and-drop file transfers at high speeds directly through Windows File Explorer or macOS Finder.
+
+2. The DeskDrive UI (The "Flash Drive" App)
+
+Because the ESP32 must surrender control of the SD card to the PC, tapping a special button in the DeskDrive app initiates a specific state machine:
+
+State 1: Idle / Disconnected
+
+User opens the "DeskDrive" app on the HelpDesk.
+
+A large, friendly button says: [ Mount as USB Drive ].
+
+State 2: Transition (Handover)
+
+User taps the button.
+
+The ESP32 safely unmounts the SD card from its internal VFS (Virtual File System) so the MP3 player and image viewer stop accessing it.
+
+The ESP32 initializes the USBMSC library and exposes the SD card to the USB data lines.
+
+State 3: Connected (PC Control)
+
+The PC hears the standard Windows "Ba-dum!" USB connection sound.
+
+A drive letter (e.g., E:\ HelpDesk) pops up on the PC.
+
+The HelpDesk screen locks into a "Do Not Disturb" UI:
+
+Shows a spinning transfer icon or USB logo.
+
+Displays: PC Connected. Do not remove SD card.
+
+A large [ Eject & Exit ] button is displayed at the bottom.
+
+State 4: Disconnect (Takeback)
+
+User safely ejects the drive from Windows, or taps [ Eject & Exit ] on the screen.
+
+The ESP32 terminates the USB MSC connection.
+
+The ESP32 remounts the SD card internally, refreshing its file index.
+
+Returns to the HelpDesk home screen.
+
+3. PlatformIO Configuration Requirements
+
+To enable native USB features on the ESP32-S3, your platformio.ini file needs specific build flags to tell the compiler to route USB traffic correctly:
+
+[env:esp32s3]
+board = esp32s3box  ; Or your specific Elecrow S3 board def
+framework = arduino
+build_flags = 
+    -D ARDUINO_USB_MODE=1
+    -D ARDUINO_USB_MSC_ON_BOOT=0 ; We only want it on when the App is open
+
+
+4. Code Implementation Concept (Arduino Core)
+
+The ESP32 Arduino core provides a built-in USBMSC class. The implementation is surprisingly simple.
+
+#include "USB.h"
+#include "USBMSC.h"
+#include "SD.h"
+
+USBMSC MSC;
+
+// Called by LVGL when user taps "Mount"
+void startDeskDriveMode() {
+    // 1. Unmount internal SD access
+    SD.end(); 
+    
+    // 2. Map the MSC to the SD card's read/write functions
+    MSC.vendorID("HelpDesk");
+    MSC.productID("DeskDrive");
+    MSC.productRevision("1.0");
+    MSC.onRead(myReadFunction);   // Map to SD block read
+    MSC.onWrite(myWriteFunction); // Map to SD block write
+    MSC.begin(sd_card_sector_count, 512);
+    
+    // 3. Start Native USB
+    USB.begin(); 
+}
