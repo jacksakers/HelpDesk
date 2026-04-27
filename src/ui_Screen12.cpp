@@ -364,7 +364,7 @@ void ui_Screen12_screen_init(void)
     lv_obj_set_style_bg_opa(ui_Screen12, LV_OPA_COVER, 0);
 
     lv_obj_add_event_cb(ui_Screen12, scr_unloaded_delete_cb,
-                        LV_EVENT_SCREEN_UNLOADED, ui_Screen12_screen_destroy);
+                        LV_EVENT_SCREEN_UNLOADED, (void*)ui_Screen12_screen_destroy);
 
     build_header(ui_Screen12);
     build_status_card(ui_Screen12);
