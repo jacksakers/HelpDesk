@@ -1,0 +1,94 @@
+Feature Design: CastDesk (Network Media Controller)
+
+1. Concept Overview
+
+The CastDesk app transforms the HelpDesk into a dedicated "Now Playing" display and remote control for Google Cast devices on your local network.
+
+Because the ESP32 doesn't have the processing power to handle Google's complex encrypted Cast protocol or heavy image decoding, the Python Companion App acts as the heavy-lifter. It connects to the speaker, processes the album art into a microcontroller-friendly format, and feeds a simplified stream of data to the HelpDesk.
+
+2. Architecture & Data Flow (The "Local CDN" Method)
+
+To avoid wearing out your SD card by constantly saving and deleting album art, we will use a "Local CDN" approach directly to the ESP32's RAM.
+
+Discovery: Python uses pychromecast to find your Google Speaker.
+
+Metadata Catch: Python detects a new song playing. It extracts the Title, Artist, and the URL for the Album Art.
+
+Image Processing: Python downloads the JPEG album art from the internet. Using the Pillow library, it crops it to a square, resizes it to exactly 150x150 pixels, and converts the colors into raw RGB565 binary (the exact language LVGL speaks).
+
+Local Hosting: Python temporarily hosts this raw .bin file on its FastAPI web server (e.g., http://192.168.1.10:8000/current_art.bin).
+
+The Serial Ping: Python sends a tiny JSON string over the USB cable to the HelpDesk:
+{"app": "cast", "title": "Bohemian Rhapsody", "artist": "Queen", "fetch_art": true}
+
+ESP32 Render: The HelpDesk updates the text on the screen. Because fetch_art is true, the ESP32 uses its Wi-Fi to quickly download the .bin file directly into its RAM and displays it on the screen.
+
+3. HelpDesk UI (LVGL Design)
+
+The UI will mimic a modern smart display.
+
+Left Side (Album Art): An lv_img widget (150x150 pixels). Rounded corners applied via LVGL styles for a premium look.
+
+Right Side (Metadata): * lv_label for the Song Title (large font, scrolling marquee effect if the name is too long).
+
+lv_label for the Artist (medium font, grey color).
+
+Bottom (Transport Controls):
+
+lv_btn for Prev, Play/Pause, and Next.
+
+A progress bar (lv_slider) showing track position.
+
+4. Bi-Directional Control (Sending Commands Back)
+
+When you tap the "Pause" button on the HelpDesk screen, the data flows in reverse:
+
+ESP32 sends a Serial message: {"event": "cast_btn", "action": "pause"}.
+
+The Python background listener catches this.
+
+Python calls cast.media_controller.pause().
+
+The Google Speaker pauses instantly.
+
+5. Python Companion App Implementation Details
+
+Dependency: pip install pychromecast Pillow
+
+Background Thread: The pychromecast library requires a background listener that stays persistently connected to the speaker to catch state changes without polling.
+
+Example Python Snippet for Image Conversion:
+
+from PIL import Image
+import requests
+from io import BytesIO
+
+def convert_album_art(url):
+    # 1. Download the image
+    response = requests.get(url)
+    img = Image.open(BytesIO(response.content))
+    
+    # 2. Resize to 150x150
+    img = img.resize((150, 150), Image.Resampling.LANCZOS)
+    
+    # 3. Convert to RGB565 (16-bit color) for LVGL
+    # This prevents the ESP32 from having to decode JPEGs!
+    raw_data = bytearray()
+    for y in range(img.height):
+        for x in range(img.width):
+            r, g, b = img.getpixel((x, y))
+            # 5 bits Red, 6 bits Green, 5 bits Blue
+            rgb565 = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+            # LVGL expects Little Endian byte order
+            raw_data.append(rgb565 & 0xFF)
+            raw_data.append((rgb565 >> 8) & 0xFF)
+            
+    # 4. Save to a local file hosted by FastAPI
+    with open("static/current_art.bin", "wb") as f:
+        f.write(raw_data)
+
+
+6. Hardware Advantages
+
+Because your Elecrow board uses the ESP32-S3, it has built-in PSRAM (Pseudo-Static RAM).
+A raw 150x150 RGB565 image takes up 45,000 bytes (45KB). This easily fits into the ESP32's memory. By storing the image in RAM instead of the SD card, the UI updates instantly when a song changes, and you avoid SD card degradation!

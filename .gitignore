@@ -12,3 +12,5 @@ __pycache__/
 *.pyc
 
 *.json
+
+extras/companion_app/uploads/images/*
